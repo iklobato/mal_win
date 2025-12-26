@@ -606,6 +606,101 @@ ss -tuln | grep 8080
 tail -f /tmp/server_cnc.log
 ```
 
+## Unit Testing
+
+### Overview
+
+The project includes comprehensive unit tests using Google Test (gtest) framework. Tests cover all utility functions and core parsing logic.
+
+### Test Coverage
+
+**Utils Class** (24 tests):
+- `strlen` - String length calculation
+- `strcmp` - String comparison
+- `strcpy` - String copy
+- `strcat` - String concatenation
+- `strstr` - Substring search
+- `strchr` - Character search
+- `atoi` - String to integer conversion
+
+**JsonParser Class** (8 tests):
+- Valid JSON parsing
+- JSON with whitespace
+- Missing fields handling
+- Complex command parsing
+- Edge cases (empty JSON, zero values)
+
+### Running Tests
+
+#### Prerequisites
+```bash
+# Install Google Test (macOS)
+brew install googletest
+
+# Or use Makefile helper
+make -f Makefile.test install-gtest
+```
+
+#### Build and Run
+```bash
+# Build tests
+make -f Makefile.test
+
+# Run all tests
+make -f Makefile.test test
+
+# Run with verbose output
+make -f Makefile.test test-verbose
+
+# Run specific test suite
+make -f Makefile.test test-filter FILTER='UtilsTest.*'
+
+# Run specific test
+make -f Makefile.test test-filter FILTER='UtilsTest.StrlenBasic'
+```
+
+#### Clean
+```bash
+make -f Makefile.test clean
+```
+
+### Test Results
+
+All 32 tests passing:
+```
+[==========] Running 32 tests from 2 test suites.
+[----------] 24 tests from UtilsTest
+[  PASSED  ] 24 tests.
+[----------] 8 tests from JsonParserTest
+[  PASSED  ] 8 tests.
+[==========] 32 tests from 2 test suites ran.
+[  PASSED  ] 32 tests.
+```
+
+### Test File Structure
+
+```
+test_remote_executor.cpp    # Main test file
+Makefile.test               # Test build configuration
+```
+
+### Adding New Tests
+
+To add new tests, follow the Google Test pattern:
+
+```cpp
+TEST_F(UtilsTest, YourTestName) {
+    // Arrange
+    const char* input = "test";
+    
+    // Act
+    size_t result = Utils::strlen(input);
+    
+    // Assert
+    EXPECT_EQ(result, 4);
+}
+```
+
 ## Development
 
 ### Building from Source

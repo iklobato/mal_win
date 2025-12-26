@@ -143,7 +143,7 @@ TEST_F(UtilsTest, StrlenBasic) {
 
 TEST_F(UtilsTest, StrlenLongString) {
   const char *longStr = "This is a longer string for testing";
-  EXPECT_EQ(Utils::strlen(longStr), 36);
+  EXPECT_EQ(Utils::strlen(longStr), 35);
 }
 
 TEST_F(UtilsTest, StrcmpEqual) {
