@@ -1,0 +1,104 @@
+# Compiled binaries
+*.exe
+*.o
+*.obj
+*.dll
+*.so
+*.dylib
+*.a
+*.lib
+
+# Test executables
+test_remote_executor
+test_*
+
+# Build artifacts
+*.out
+build/
+dist/
+*.log
+
+# Cursor IDE files
+.cursor/
+.cursor_*
+cursor_prompt.md
+CURSOR_PROMPT.txt
+
+# Specify files
+specs/
+.specify/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# Log files
+*.log
+debug.log
+server_cnc.log
+
+# Compiled C/C++ files
+*.i
+*.ii
+*.s
+*.su
+*.d
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Project specific
+remote_command_executor_cpp_*
+curl_windows/
+AV_BYPASS_FLAGS.md
+check_binary.sh
+run_and_monitor.sh
+transfer_and_run.sh
+test_remote_binary.sh
+remote_command_executor.c
+remote_command_executor_no_comments.cpp
+Makefile.native
+Makefile.remote
+Makefile.win
+
+# Collected logs
+collected_logs/
+keylogs/
+logs/
+*.zip
+
+# Sensitive data (just in case)
+*.pem
+*.key
+*.cert
+credentials.txt
+passwords.txt
