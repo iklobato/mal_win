@@ -1,0 +1,50 @@
+# Makefile for Unit Tests
+# Requires Google Test framework
+
+CXX = g++
+CXXFLAGS = -std=c++17 -Wall -Wextra -g
+GTEST_FLAGS = -lgtest -lgtest_main -pthread
+TARGET = test_remote_executor
+SOURCE = test_remote_executor.cpp
+
+# Default target
+all: $(TARGET)
+
+# Build test executable
+$(TARGET): $(SOURCE)
+	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SOURCE) $(GTEST_FLAGS)
+	@echo "Build complete: $(TARGET)"
+	@echo "Run tests with: ./$(TARGET)"
+
+# Run tests
+test: $(TARGET)
+	./$(TARGET)
+
+# Run tests with verbose output
+test-verbose: $(TARGET)
+	./$(TARGET) --gtest_print_time=1
+
+# Run specific test
+test-filter: $(TARGET)
+	./$(TARGET) --gtest_filter=$(FILTER)
+
+# Clean
+clean:
+	rm -f $(TARGET) *.o
+	@echo "Cleaned test artifacts"
+
+# Install Google Test (macOS with Homebrew)
+install-gtest:
+	brew install googletest
+
+# Help
+help:
+	@echo "Available targets:"
+	@echo "  make          - Build test executable"
+	@echo "  make test     - Build and run all tests"
+	@echo "  make test-verbose - Run tests with timing"
+	@echo "  make test-filter FILTER='UtilsTest.*' - Run specific tests"
+	@echo "  make clean    - Remove build artifacts"
+	@echo "  make install-gtest - Install Google Test via Homebrew"
+
+.PHONY: all test test-verbose test-filter clean install-gtest help
