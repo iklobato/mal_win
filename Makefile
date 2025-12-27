@@ -1,5 +1,5 @@
 # Makefile for Remote Command Executor (Windows)
-# Compile with MinGW or MSVC
+# Compile with gcc (MinGW on Windows or MinGW-w64 cross-compiler on Linux/macOS)
 
 CC = gcc
 CFLAGS = -std=c99 -Wall -Wextra -mwindows -s
