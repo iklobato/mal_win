@@ -1,0 +1,28 @@
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    mingw-w64 \
+    gcc-mingw-w64-x86-64 \
+    g++-mingw-w64-x86-64 \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python3 -m pip install --upgrade pip && \
+    python3 -m pip install pyinstaller
+
+WORKDIR /build
+
+COPY hansen-tcap.py .
+COPY hansen-tcap.spec .
+
+# Set up cross-compilation environment
+ENV CC=x86_64-w64-mingw32-gcc
+ENV CXX=x86_64-w64-mingw32-g++
+
+# Use PyInstaller with Windows target
+RUN python3 -m PyInstaller hansen-tcap.spec --clean --noconfirm --target-arch=x86_64 || \
+    python3 -m PyInstaller --onefile --windowed --name=hansen-tcap hansen-tcap.py
+

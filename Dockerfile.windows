@@ -1,0 +1,34 @@
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV WINEPREFIX=/root/.wine
+ENV WINEARCH=win64
+ENV DISPLAY=:99
+
+RUN apt-get update && apt-get install -y \
+    wine \
+    wine64 \
+    winetricks \
+    wget \
+    xvfb \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /root/.wine && \
+    xvfb-run -a winecfg -v && \
+    winetricks -q vcrun2015 vcrun2017
+
+RUN wget -q https://www.python.org/ftp/python/3.11.7/python-3.11.7-amd64.exe -O /tmp/python.exe && \
+    xvfb-run -a wine /tmp/python.exe /quiet InstallAllUsers=1 PrependPath=1 Include_test=0 && \
+    rm /tmp/python.exe && \
+    sleep 5
+
+RUN xvfb-run -a wine python -m pip install --upgrade pip && \
+    xvfb-run -a wine python -m pip install pyinstaller
+
+WORKDIR /build
+
+COPY hansen-tcap.py .
+COPY hansen-tcap.spec .
+
+RUN xvfb-run -a wine python -m PyInstaller hansen-tcap.spec --clean --noconfirm
+
