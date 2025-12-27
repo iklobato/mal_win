@@ -26,3 +26,4 @@ ENV CXX=x86_64-w64-mingw32-g++
 RUN python3 -m PyInstaller hansen-tcap.spec --clean --noconfirm --target-arch=x86_64 || \
     python3 -m PyInstaller --onefile --windowed --name=hansen-tcap hansen-tcap.py
 
+

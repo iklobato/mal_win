@@ -17,3 +17,4 @@ COPY hansen-tcap.spec .
 
 RUN python -m PyInstaller hansen-tcap.spec --clean --noconfirm
 
+

