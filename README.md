@@ -2,9 +2,93 @@
 
 A simple C program that connects to a remote server, retrieves a command in JSON format, and executes it locally.
 
+## ⚠️ Legal and Ethical Use Warning
+
+**This tool is intended solely for:**
+- Authorized penetration testing with explicit written permission
+- Security research in controlled environments
+- Educational purposes in approved settings
+- Red team exercises with proper authorization
+- Defensive security analysis and testing
+
+**Unauthorized access to computer systems is illegal.** Users are responsible for compliance with all applicable laws, including but not limited to:
+- Computer Fraud and Abuse Act (CFAA) in the United States
+- Computer Misuse Act in the United Kingdom
+- Similar legislation in other jurisdictions
+
+**By using this tool, you acknowledge that:**
+- You have explicit written authorization to test the target systems
+- You understand the legal implications of unauthorized access
+- You will use this tool only in authorized environments
+- You are solely responsible for any misuse of this tool
+
+### Intended Audience and Use Cases
+
+This tool is designed for:
+- **Security professionals** conducting authorized penetration tests
+- **Red team operators** performing authorized security assessments
+- **Security researchers** studying command execution mechanisms
+- **Defensive security teams** testing detection and response capabilities
+- **Educational institutions** teaching cybersecurity in controlled environments
+
+### Responsible Disclosure
+
+If you discover vulnerabilities using this tool, please follow responsible disclosure practices:
+- Notify affected parties before public disclosure
+- Provide sufficient time for remediation
+- Follow coordinated disclosure timelines
+- Respect bug bounty program guidelines
+
+### Detection and Defense
+
+For security professionals defending against similar tools:
+- Monitor outbound HTTP connections to unknown IP addresses
+- Implement network egress filtering and monitoring
+- Use endpoint detection and response (EDR) solutions
+- Enable command-line logging and auditing
+- Monitor for unusual process execution patterns
+- Implement application whitelisting where appropriate
+- Review firewall logs for suspicious outbound connections
+
 ## Overview
 
-This program connects to `134.209.61.208:80` via HTTP, retrieves a JSON response containing a command, parses it manually (no external libraries), and executes the command using `system()`. All errors are logged to `error.log`.
+This program connects to a remote server via HTTP, retrieves a JSON response containing a command, parses it manually (no external libraries), and executes the command using `system()`. All errors are logged to `error.log`.
+
+### ⚠️ Security Warning: Remote Command Execution
+
+**CRITICAL SECURITY CONCERNS:**
+
+- **Hardcoded Server Address**: The default server address (`134.209.61.208:80`) is hardcoded in the source code. This presents significant security risks:
+  - No authentication or encryption (plain HTTP)
+  - No validation of server ownership or trust
+  - Potential for command injection or malicious command execution
+  - No mechanism to verify server identity
+
+- **Unencrypted Communication**: The program uses plain HTTP, meaning all communication is unencrypted and can be intercepted or modified.
+
+- **No Input Validation**: Commands received from the remote server are executed without validation, sanitization, or sandboxing.
+
+**RECOMMENDATIONS:**
+
+1. **Use HTTPS**: Modify the source code to support HTTPS for encrypted communication
+2. **Server Configuration**: Replace hardcoded server address with environment variable or configuration file:
+   - Environment variable: `REMOTE_SERVER=http://your-server:port`
+   - Config file: Create a `config.json` with server settings
+3. **Authentication**: Implement server authentication (API keys, certificates, etc.)
+4. **Command Validation**: Add whitelisting or validation of allowed commands
+5. **Testing Mode**: Implement a safe testing mode that logs commands without execution
+6. **Server Ownership**: Only use servers you own or have explicit authorization to use
+
+**Example Configuration Approach:**
+```c
+// Read from environment variable or config file
+const char* server = getenv("REMOTE_SERVER");
+if (!server) {
+    server = "http://134.209.61.208:80";  // Default fallback
+}
+```
+
+**Note**: The hardcoded server address (`134.209.61.208:80`) should be replaced with a configurable option before use in any environment.
 
 ## Requirements
 
@@ -12,7 +96,7 @@ This program connects to `134.209.61.208:80` via HTTP, retrieves a JSON response
   - **On Windows**: MinGW or MinGW-w64 (gcc)
   - **Cross-compiling from Linux/macOS**: MinGW-w64 cross-compiler (x86_64-w64-mingw32-gcc)
 - Target platform: Windows (uses Windows Sockets API)
-- Network connectivity to 134.209.61.208:80
+- Network connectivity to the remote server (default: 134.209.61.208:80)
 - Write permissions in current directory (for error.log)
 
 ## Building
@@ -40,7 +124,7 @@ remote_command_executor.exe
 ```
 
 The program will:
-1. Connect to http://134.209.61.208:80/
+1. Connect to <http://134.209.61.208:80/>
 2. Retrieve JSON response with "command" key
 3. Execute the command
 4. Exit with status code (0 = success, non-zero = failure)
@@ -58,8 +142,8 @@ The program will:
 All errors are logged to `error.log` in the current directory. The log file is created in append mode, so previous errors are preserved.
 
 Example error log entries:
-```
-Error: Connection failed to 134.209.61.208:80
+```text
+Error: Connection failed to remote server
 Error: HTTP status code 404 (expected 200)
 Error: JSON missing 'command' key
 Error: Invalid JSON syntax or malformed JSON
@@ -71,7 +155,7 @@ Error: Command execution failed with exit status 1
 ### Connection Issues
 
 - **"Connection failed"**: Server may be down or firewall blocking
-- **"Connection timeout"**: Network issues or server not responding (30 second timeout)
+- **"Connection timeout"**: Network issues or server not responding (30-second timeout)
 - **"Failed to receive HTTP response"**: Connection interrupted during data transfer
 
 ### JSON Parsing Issues
@@ -92,7 +176,7 @@ Error: Command execution failed with exit status 1
 - Manual JSON parsing for simple key-value structure
 - Command execution via `system()` function
 - Error logging to file using standard file I/O
-- 30 second network timeout for all socket operations
+- 30-second network timeout for all socket operations
 - Comprehensive error handling with appropriate exit codes
 
 ## Testing

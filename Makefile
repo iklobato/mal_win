@@ -1,5 +1,8 @@
 # Makefile for Remote Command Executor (Windows)
 # Compile with gcc (MinGW on Windows or MinGW-w64 cross-compiler on Linux/macOS)
+#
+# For cross-compilation from Linux/macOS, override CC:
+#   make CC=x86_64-w64-mingw32-gcc
 
 CC = gcc
 CFLAGS = -std=c99 -Wall -Wextra -mwindows -s
@@ -22,7 +25,7 @@ c: $(SOURCE)
 	fi
 
 clean:
-	rm -f $(TARGET) *.o next_ip.txt
+	rm -f $(TARGET) *.o
 
 run: $(TARGET)
 	./$(TARGET)
