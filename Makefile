@@ -10,15 +10,24 @@ TARGET = remote_command_executor.exe
 SOURCE = remote_command_executor.c
 LIBS = -lws2_32 -ladvapi32
 
-OBFUSCATED_CFLAGS = -std=c99 -mwindows -s -O3 -ffunction-sections -fdata-sections -fno-ident -fno-asynchronous-unwind-tables -fno-stack-protector -fno-unwind-tables -fomit-frame-pointer -Wl,--gc-sections -Wl,--strip-all -Wl,--build-id=none
+# Research-only build with reduced symbols (DO NOT USE IN PRODUCTION)
+# Intended for studying detection mechanisms in controlled environments only
+# WARNING: This removes security protections and should only be used in isolated test environments
+RESEARCH_CFLAGS = -std=c99 -mwindows -s -O3 -ffunction-sections -fdata-sections -Wl,--gc-sections
 
 all: $(TARGET)
 
 $(TARGET): $(SOURCE)
 	$(CC) $(CFLAGS) -o $(TARGET) $(SOURCE) $(LIBS)
 
-c: $(SOURCE)
-	$(CC) $(OBFUSCATED_CFLAGS) -o $(TARGET) $(SOURCE) $(LIBS)
+# Research build target - produces binary with reduced symbols for detection mechanism studies
+# WARNING: Only use in controlled, isolated test environments with explicit authorization
+research: $(SOURCE)
+	@echo "WARNING: Building research version with reduced symbols"
+	@echo "This build is intended ONLY for studying detection mechanisms in controlled environments"
+	@echo "DO NOT use in production or on systems you do not own or have authorization to test"
+	@read -p "Press Enter to continue or Ctrl+C to abort... " || exit 1
+	$(CC) $(RESEARCH_CFLAGS) -o $(TARGET) $(SOURCE) $(LIBS)
 	@if command -v upx >/dev/null 2>&1; then \
 		echo "Packing with UPX..."; \
 		upx --best --lzma $(TARGET) 2>/dev/null || upx --best $(TARGET) 2>/dev/null || true; \
@@ -30,4 +39,15 @@ clean:
 run: $(TARGET)
 	./$(TARGET)
 
-.PHONY: all clean run c
+test:
+	@echo "Running basic validation tests..."
+	@echo "Note: This tool requires controlled test environment with authorized test server"
+	@if [ ! -f $(TARGET) ]; then \
+		echo "Error: Binary not built. Run 'make' first."; \
+		exit 1; \
+	fi
+	@echo "Binary exists: $(TARGET)"
+	@echo "File size: $$(ls -lh $(TARGET) | awk '{print $$5}')"
+	@echo "Validation complete. Manual testing required in authorized environment."
+
+.PHONY: all clean run research test
